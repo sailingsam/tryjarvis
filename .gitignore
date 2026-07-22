@@ -1,0 +1,7 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Runtime data — Jarvis's memory is per-user, not source
+data/

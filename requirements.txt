@@ -1,0 +1,2 @@
+# Core (text mode) — proves the memory bet, runs anywhere.
+anthropic>=0.117

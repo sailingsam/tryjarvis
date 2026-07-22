@@ -1,0 +1,5 @@
+# Voice mode (--voice). Heavier, optional. Local-first: audio stays on device.
+faster-whisper>=1.0   # local speech-to-text
+sounddevice>=0.4      # microphone capture
+numpy>=1.24
+pyttsx3>=2.90         # local text-to-speech
