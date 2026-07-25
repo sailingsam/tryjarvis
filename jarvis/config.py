@@ -32,4 +32,11 @@ def load_mcp_servers() -> list[dict]:
     if not MCP_CONFIG_FILE.exists():
         return []
     data = json.loads(MCP_CONFIG_FILE.read_text() or "{}")
-    return data.get("servers", [])
+    servers = data.get("servers", [])
+    # Expand ${VAR} in env values so secrets (tokens) can live in the
+    # environment instead of on disk in mcp.json.
+    for server in servers:
+        env = server.get("env")
+        if isinstance(env, dict):
+            server["env"] = {k: os.path.expandvars(str(v)) for k, v in env.items()}
+    return servers

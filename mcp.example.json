@@ -1,0 +1,14 @@
+{
+  "_comment": "Copy relevant blocks into data/mcp.json (gitignored). Secrets can be ${ENV_VARS}, expanded from your environment at startup — keep real tokens out of this file.",
+  "servers": [
+    {
+      "name": "slack",
+      "command": "npx",
+      "args": ["-y", "slack-mcp-server@latest"],
+      "env": {
+        "SLACK_MCP_XOXP_TOKEN": "${SLACK_XOXP_TOKEN}",
+        "SLACK_MCP_ADD_MESSAGE_TOOL": "true"
+      }
+    }
+  ]
+}
