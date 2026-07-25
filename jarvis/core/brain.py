@@ -90,8 +90,10 @@ class Brain:
         self._memory = memory
         self._history: list[dict] = []           # this session's conversation
 
-    def _facts_block(self) -> str:
-        mems = self._memory.recall()
+    def _facts_block(self, query: str | None = None) -> str:
+        # query-driven recall: at scale this returns the facts relevant to what
+        # the user just said, not the whole store. Small scale → everything.
+        mems = self._memory.recall(query=query)
         if not mems:
             return "(nothing yet — this is a fresh relationship)"
         return "\n".join(f"- {m.content} (learned {m.human_time()})" for m in mems)
@@ -106,7 +108,7 @@ class Brain:
         """Reply naturally, then (separately) update memory from the exchange."""
         self._history.append({"role": "user", "content": user_text})
         reply_system = _REPLY_SYSTEM.format(
-            today=_today(), facts=self._facts_block(), commitments=self._commitments_block()
+            today=_today(), facts=self._facts_block(query=user_text), commitments=self._commitments_block()
         )
         reply = self._llm.generate(reply_system, self._history).strip()
         self._history.append({"role": "assistant", "content": reply})
@@ -119,7 +121,9 @@ class Brain:
         against the open-commitments list (with ids) so references like 'both'
         resolve to real ids — the failure the single-pass design couldn't do."""
         extract_system = _EXTRACT_SYSTEM.format(
-            today=_today(), facts=self._facts_block(), commitments=self._commitments_block()
+            today=_today(),
+            facts=self._facts_block(query=_recent_user(self._history)),
+            commitments=self._commitments_block(),
         )
         raw = self._extractor.generate(extract_system, self._history)
         updates = _parse_updates(raw)

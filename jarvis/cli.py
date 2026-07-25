@@ -13,11 +13,14 @@ import sys
 from . import config
 from .core.brain import Brain
 from .core.memory import MemoryStore
+from .providers.embeddings import LocalEmbedder
 from .providers.llm import ClaudeLLM
 
 
 def _run_conversation(voice: bool) -> None:
-    memory = MemoryStore(config.DB_FILE)
+    # The embedder is only needed here — it's what writes fact vectors and powers
+    # query-driven recall. The read-only commands don't load it (faster startup).
+    memory = MemoryStore(config.DB_FILE, embedder=LocalEmbedder())
     brain = Brain(
         llm=ClaudeLLM(model=config.LLM_MODEL),
         memory=memory,

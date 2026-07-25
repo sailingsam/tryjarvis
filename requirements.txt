@@ -1,2 +1,5 @@
 # Core (text mode) — proves the memory bet, runs anywhere.
 anthropic>=0.117
+
+# Memory retrieval: local embeddings for semantic recall (ONNX, CPU, no key).
+fastembed>=0.3
