@@ -6,3 +6,6 @@ fastembed>=0.3
 
 # Tools: keyless web search (DuckDuckGo).
 ddgs>=9.0
+
+# Tools: MCP client (external tool servers).
+mcp>=1.0

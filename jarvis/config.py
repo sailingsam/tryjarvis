@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 
@@ -20,3 +21,15 @@ LLM_MODEL = os.environ.get("JARVIS_MODEL", "claude-sonnet-5")
 # a small model does it well. Kept separate so the conversation is never asked
 # to also emit control JSON (that mix was unreliable and leaked).
 EXTRACT_MODEL = os.environ.get("JARVIS_EXTRACT_MODEL", "claude-haiku-4-5-20251001")
+
+# MCP servers to connect on startup — optional. Each entry:
+#   {"name": "gcal", "command": "npx", "args": ["-y", "..."], "env": {...}}
+# Their tools appear in the same tool-use loop as built-in tools.
+MCP_CONFIG_FILE = DATA_DIR / "mcp.json"
+
+
+def load_mcp_servers() -> list[dict]:
+    if not MCP_CONFIG_FILE.exists():
+        return []
+    data = json.loads(MCP_CONFIG_FILE.read_text() or "{}")
+    return data.get("servers", [])

@@ -23,11 +23,15 @@ def _run_conversation(voice: bool) -> None:
     # The embedder is only needed here — it's what writes fact vectors and powers
     # query-driven recall. The read-only commands don't load it (faster startup).
     memory = MemoryStore(config.DB_FILE, embedder=LocalEmbedder())
+
+    tools = [WebSearch()]
+    mcp_clients = _connect_mcp(tools)   # extends `tools` with any configured servers
+
     brain = Brain(
         llm=ClaudeLLM(model=config.LLM_MODEL),
         memory=memory,
         extractor=ClaudeLLM(model=config.EXTRACT_MODEL),
-        tools=Registry([WebSearch()]),
+        tools=Registry(tools),
     )
 
     if voice:
@@ -51,12 +55,36 @@ def _run_conversation(voice: bool) -> None:
         hello = "Hi, I'm Jarvis. We're just getting started — tell me about yourself."
     io.speak(hello)
 
-    while True:
-        user_text = io.listen()
-        if user_text is None:
-            io.speak("Talk soon.")
-            break
-        io.speak(brain.think(user_text, io=io))
+    try:
+        while True:
+            user_text = io.listen()
+            if user_text is None:
+                io.speak("Talk soon.")
+                break
+            io.speak(brain.think(user_text, io=io))
+    finally:
+        for client in mcp_clients:
+            client.close()
+
+
+def _connect_mcp(tools: list) -> list:
+    """Start any MCP servers from config, append their tools to `tools`, and
+    return the live clients (so the caller can close them on exit). A server
+    that fails to start is skipped with a note — it never blocks the session."""
+    clients = []
+    for server in config.load_mcp_servers():
+        try:
+            from .tools.mcp_client import connect
+
+            client, mcp_tools = connect(
+                server["name"], server["command"], server.get("args", []), server.get("env")
+            )
+            clients.append(client)
+            tools.extend(mcp_tools)
+            print(f"(MCP '{server['name']}': {len(mcp_tools)} tools)")
+        except Exception as e:
+            print(f"(MCP '{server.get('name', '?')}' failed to start: {e})")
+    return clients
 
 
 def _show_memory() -> None:
