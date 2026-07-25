@@ -34,3 +34,37 @@ class ClaudeLLM:
             messages=messages,
         )
         return "".join(block.text for block in resp.content if block.type == "text")
+
+    def run_tools(self, system: str, messages: list[dict], tools: list[dict], executor) -> str:
+        """Agentic reply: let the model call tools, execute them (via `executor`,
+        which handles confirmation), feed results back, loop until it answers.
+
+        All Anthropic-specific block handling is contained here — the brain
+        passes plain-string history + a plain executor and gets plain text back.
+        `executor(name, input) -> str` runs the tool and returns its result.
+        """
+        if not tools:
+            return self.generate(system, messages)
+
+        # Local working copy — never mutate the brain's history with tool blocks.
+        convo: list[dict] = [{"role": m["role"], "content": m["content"]} for m in messages]
+        while True:
+            resp = self._client.messages.create(
+                model=self._model,
+                max_tokens=self._max_tokens,
+                system=system,
+                messages=convo,
+                tools=tools,
+            )
+            if resp.stop_reason != "tool_use":
+                return "".join(b.text for b in resp.content if b.type == "text")
+
+            convo.append({"role": "assistant", "content": resp.content})
+            results = []
+            for block in resp.content:
+                if block.type == "tool_use":
+                    output = executor(block.name, dict(block.input))
+                    results.append(
+                        {"type": "tool_result", "tool_use_id": block.id, "content": output}
+                    )
+            convo.append({"role": "user", "content": results})

@@ -15,6 +15,8 @@ from .core.brain import Brain
 from .core.memory import MemoryStore
 from .providers.embeddings import LocalEmbedder
 from .providers.llm import ClaudeLLM
+from .tools.base import Registry
+from .tools.web_search import WebSearch
 
 
 def _run_conversation(voice: bool) -> None:
@@ -25,6 +27,7 @@ def _run_conversation(voice: bool) -> None:
         llm=ClaudeLLM(model=config.LLM_MODEL),
         memory=memory,
         extractor=ClaudeLLM(model=config.EXTRACT_MODEL),
+        tools=Registry([WebSearch()]),
     )
 
     if voice:
@@ -53,7 +56,7 @@ def _run_conversation(voice: bool) -> None:
         if user_text is None:
             io.speak("Talk soon.")
             break
-        io.speak(brain.think(user_text))
+        io.speak(brain.think(user_text, io=io))
 
 
 def _show_memory() -> None:

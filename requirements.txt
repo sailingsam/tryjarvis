@@ -3,3 +3,6 @@ anthropic>=0.117
 
 # Memory retrieval: local embeddings for semantic recall (ONNX, CPU, no key).
 fastembed>=0.3
+
+# Tools: keyless web search (DuckDuckGo).
+ddgs>=9.0

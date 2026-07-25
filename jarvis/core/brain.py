@@ -18,6 +18,8 @@ Extraction returns plain JSON, so any LLMProvider works — no vendor tool schem
 from __future__ import annotations
 
 import json
+import os
+import sys
 from datetime import datetime
 
 from ..core.memory import MemoryStore
@@ -39,6 +41,8 @@ HOW YOU ACT:
 - If a relevant commitment is still open, a brief nudge is welcome.
 - If asked to draft a message, email, or note, just write it — ready to send.
 - You know today's date; resolve "today"/"tomorrow"/"this weekend" against it.
+- You can use tools when they help — e.g. search the web for current or
+  factual things you're unsure of. Prefer acting over guessing.
 
 Just talk to the user naturally. Do not output JSON or any control text —
 remembering things happens elsewhere, not in your reply."""
@@ -83,11 +87,23 @@ def _today() -> str:
     return datetime.now().strftime("%A, %Y-%m-%d")
 
 
+# Affirmatives accepted at a confirmation prompt (text + common Hinglish).
+_YES = {"yes", "y", "yeah", "yep", "ok", "okay", "sure", "confirm", "do it", "go ahead",
+        "haan", "ha", "haa", "kar", "kar do", "krdo", "theek", "thik", "ok kar"}
+
+
 class Brain:
-    def __init__(self, llm: LLMProvider, memory: MemoryStore, extractor: LLMProvider | None = None):
+    def __init__(
+        self,
+        llm: LLMProvider,
+        memory: MemoryStore,
+        extractor: LLMProvider | None = None,
+        tools=None,
+    ):
         self._llm = llm
         self._extractor = extractor or llm      # falls back to the main model
         self._memory = memory
+        self._tools = tools                      # a tools.Registry, or None
         self._history: list[dict] = []           # this session's conversation
 
     def _facts_block(self, query: str | None = None) -> str:
@@ -104,17 +120,40 @@ class Brain:
             return "(none open)"
         return "\n".join(f"- {c.id} — {c.content} (since {c.human_time()})" for c in open_c)
 
-    def think(self, user_text: str) -> str:
-        """Reply naturally, then (separately) update memory from the exchange."""
+    def think(self, user_text: str, io=None) -> str:
+        """Reply naturally (using tools when helpful), then update memory."""
         self._history.append({"role": "user", "content": user_text})
         reply_system = _REPLY_SYSTEM.format(
             today=_today(), facts=self._facts_block(query=user_text), commitments=self._commitments_block()
         )
-        reply = self._llm.generate(reply_system, self._history).strip()
+        if self._tools and len(self._tools):
+            reply = self._llm.run_tools(
+                reply_system, self._history, self._tools.specs(), self._make_executor(io)
+            ).strip()
+        else:
+            reply = self._llm.generate(reply_system, self._history).strip()
         self._history.append({"role": "assistant", "content": reply})
 
         self._update_memory()
         return reply
+
+    def _make_executor(self, io):
+        """Runs a tool the model asked for — gating outward/irreversible ones
+        behind an IO confirmation first. Returns the tool's result as a string
+        (a decline is a normal result, not an error, so the model handles it)."""
+        def executor(name: str, tool_input: dict) -> str:
+            tool = self._tools.get(name)
+            if tool is None:
+                return f"(no such tool: {name})"
+            if os.environ.get("JARVIS_DEBUG"):
+                print(f"  [tool] {name}({tool_input})", file=sys.stderr)
+            if tool.needs_confirm and io is not None:
+                io.speak(tool.confirmation(**tool_input))
+                answer = (io.listen() or "").strip().lower()
+                if answer not in _YES:
+                    return "The user declined; the action was not performed."
+            return tool.execute(**tool_input)
+        return executor
 
     def _update_memory(self) -> None:
         """Second pass: a focused, cheap call that maintains the store. Runs
