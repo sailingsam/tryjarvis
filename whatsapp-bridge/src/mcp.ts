@@ -397,18 +397,6 @@ export async function startMcpServer(
     },
     async ({ recipient, message }) => {
       mcpLogger.info(`[MCP Tool] Executing send_message to ${recipient}`);
-      if (!sock) {
-        mcpLogger.error(
-          "[MCP Tool Error] send_message failed: WhatsApp socket is not available.",
-        );
-        return {
-          isError: true,
-          content: [
-            { type: "text", text: "Error: WhatsApp connection is not active." },
-          ],
-        };
-      }
-
       let normalizedRecipient: string;
       try {
         normalizedRecipient = jidNormalizedUser(recipient);
@@ -433,8 +421,7 @@ export async function startMcpServer(
       try {
         const result = await sendWhatsAppMessage(
           waLogger,
-          sock,
-          normalizedRecipient,
+          recipient,
           message,
         );
 

@@ -25,6 +25,60 @@ const AUTH_DIR = path.join(import.meta.dirname, "..", "auth_info");
 
 export type WhatsAppSocket = ReturnType<typeof makeWASocket>;
 
+// Always-current connection. Reconnect swaps `sock` here so the send path never
+// holds a stale (dead) socket — the bug that made sends fail for hours after a
+// laptop sleep even though Baileys had reconnected underneath.
+export const conn: {
+  sock: WhatsAppSocket | null;
+  state: "open" | "connecting" | "close";
+} = { sock: null, state: "close" };
+
+let reconnecting = false;
+let watchdogStarted = false;
+const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+function scheduleReconnect(logger: P.Logger): void {
+  if (reconnecting) return;
+  reconnecting = true;
+  logger.warn("Scheduling WhatsApp reconnect…");
+  setTimeout(async () => {
+    reconnecting = false;
+    try {
+      await startWhatsAppConnection(logger);
+    } catch (e) {
+      logger.error({ err: e }, "Reconnect attempt failed; will retry.");
+      scheduleReconnect(logger);
+    }
+  }, 2000);
+}
+
+// A laptop waking from sleep can leave a zombie socket that never fires a
+// 'close' event, so poll: if we're not open and not already reconnecting,
+// reconnect. This resumes message capture automatically after sleep.
+function startWatchdog(logger: P.Logger): void {
+  if (watchdogStarted) return;
+  watchdogStarted = true;
+  setInterval(() => {
+    if (conn.state !== "open" && !reconnecting) {
+      logger.warn("Watchdog: connection not open — reconnecting.");
+      scheduleReconnect(logger);
+    }
+  }, 30_000);
+}
+
+// Block until the connection is open (kicking a reconnect if needed), up to a
+// timeout. Used before a send so a cold/stale socket recovers first.
+async function ensureConnected(logger: P.Logger, timeoutMs = 25_000): Promise<boolean> {
+  if (conn.state === "open" && conn.sock) return true;
+  scheduleReconnect(logger);
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    await delay(500);
+    if (conn.state === "open" && conn.sock) return true;
+  }
+  return false;
+}
+
 function parseMessageForDb(msg: WAMessage): DbMessage | null {
   if (!msg.message || !msg.key || !msg.key.remoteJid) {
     return null;
@@ -143,6 +197,10 @@ export async function startWhatsAppConnection(
     defaultQueryTimeoutMs: 90_000,
   });
 
+  conn.sock = sock;
+  conn.state = "connecting";
+  startWatchdog(logger);
+
   sock.ev.process(async (events) => {
     if (events["connection.update"]) {
       const update = events["connection.update"];
@@ -158,6 +216,7 @@ export async function startWhatsAppConnection(
       }
 
       if (connection === "close") {
+        conn.state = "close";
         const statusCode = (lastDisconnect?.error as any)?.output?.statusCode;
         logger.warn(
           `Connection closed. Reason: ${
@@ -166,8 +225,7 @@ export async function startWhatsAppConnection(
           lastDisconnect?.error
         );
         if (statusCode !== DisconnectReason.loggedOut) {
-          logger.info("Reconnecting...");
-          startWhatsAppConnection(logger);
+          scheduleReconnect(logger);
         } else {
           logger.error(
             "Connection closed: Logged Out. Please delete auth_info and restart."
@@ -175,6 +233,7 @@ export async function startWhatsAppConnection(
           process.exit(1);
         }
       } else if (connection === "open") {
+        conn.state = "open";
         logger.info(`Connection opened. WA user: ${sock.user?.name}`);
         syncGroups(sock, logger);
       }
@@ -276,41 +335,48 @@ export async function startWhatsAppConnection(
   return sock;
 }
 
+function isConnectionClosed(error: any): boolean {
+  const msg = String(error?.message || "").toLowerCase();
+  return msg.includes("connection closed") || error?.output?.statusCode === 428;
+}
+
 export async function sendWhatsAppMessage(
   logger: P.Logger,
-  sock: WhatsAppSocket | null,
   recipientJid: string,
   text: string
 ): Promise<proto.WebMessageInfo | void> {
-  if (!sock || !sock.user) {
-    logger.error(
-      "Cannot send message: WhatsApp socket not connected or initialized."
-    );
-    return;
-  }
-  if (!recipientJid) {
-    logger.error("Cannot send message: Recipient JID is missing.");
-    return;
-  }
-  if (!text) {
-    logger.error("Cannot send message: Message text is empty.");
+  if (!recipientJid || !text) {
+    logger.error("Cannot send message: missing recipient or text.");
     return;
   }
 
-  try {
-    logger.info(
-      `Sending message to ${recipientJid}: ${text.substring(0, 50)}...`
-    );
-    // Groups (@g.us) must NOT be run through jidNormalizedUser (that's for
-    // user JIDs); pass group JIDs through untouched.
-    const targetJid = isJidGroup(recipientJid)
-      ? recipientJid
-      : jidNormalizedUser(recipientJid);
-    const result = await sock.sendMessage(targetJid, { text: text });
-    logger.info({ msgId: result?.key.id }, "Message sent successfully");
-    return result;
-  } catch (error) {
-    logger.error({ err: error, recipientJid }, "Failed to send message");
+  // Recover from a cold/stale/slept connection before sending.
+  if (!(await ensureConnected(logger))) {
+    logger.error("Cannot send message: not connected after reconnect attempt.");
     return;
+  }
+
+  // Groups (@g.us) must NOT be run through jidNormalizedUser (that's for user
+  // JIDs); pass group JIDs through untouched.
+  const targetJid = isJidGroup(recipientJid)
+    ? recipientJid
+    : jidNormalizedUser(recipientJid);
+
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      logger.info(`Sending message to ${targetJid}: ${text.substring(0, 50)}...`);
+      const result = await conn.sock!.sendMessage(targetJid, { text });
+      logger.info({ msgId: result?.key.id }, "Message sent successfully");
+      return result;
+    } catch (error) {
+      logger.error({ err: error, recipientJid: targetJid, attempt }, "Failed to send message");
+      // Dead socket (e.g. after sleep): force a reconnect, wait, and retry once.
+      if (isConnectionClosed(error) && attempt === 1) {
+        conn.state = "close";
+        if (!(await ensureConnected(logger))) return;
+        continue;
+      }
+      return;
+    }
   }
 }
