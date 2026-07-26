@@ -16,8 +16,13 @@ from __future__ import annotations
 import asyncio
 import re
 import threading
+import time
 
 from .base import Tool
+
+# Transient connection hiccups (a cold Baileys socket, mid-reconnect). Baileys
+# recovers on its own, so one retry after a short pause turns these into success.
+_TRANSIENT = ("connection closed", "timed out", "time-out", "not active", "not connected")
 
 
 def _sanitize(name: str) -> str:
@@ -112,7 +117,17 @@ class MCPTool(Tool):
         self.needs_confirm = _infer_confirm(meta)
 
     def execute(self, **kwargs) -> str:
-        return self._client.call(self._remote_name, kwargs)
+        result = self._safe_call(kwargs)
+        if any(t in result.lower() for t in _TRANSIENT):
+            time.sleep(3)                      # let the socket finish connecting
+            result = self._safe_call(kwargs)
+        return result
+
+    def _safe_call(self, kwargs: dict) -> str:
+        try:
+            return self._client.call(self._remote_name, kwargs)
+        except Exception as e:                 # surface as text so the retry logic can see it
+            return f"(tool error) {e}"
 
     def confirmation(self, **kwargs) -> str:
         return f"Run {self.name} with {kwargs}? (yes/no)"
