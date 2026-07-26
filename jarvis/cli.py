@@ -31,7 +31,7 @@ def _run_conversation(voice: bool) -> None:
     # query-driven recall. The read-only commands don't load it (faster startup).
     memory = MemoryStore(config.DB_FILE, embedder=LocalEmbedder())
 
-    tools = [WebSearch()]
+    tools = [WebSearch(), *_daemon()._x_tools()]
     mcp_clients = _connect_mcp(tools)   # extends `tools` with any configured servers
 
     brain = Brain(

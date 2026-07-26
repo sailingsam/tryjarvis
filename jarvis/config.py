@@ -6,6 +6,22 @@ import json
 import os
 from pathlib import Path
 
+# Load a project-root .env (gitignored) into the environment so secrets (X
+# tokens, etc.) persist without re-exporting and are picked up by the daemon too.
+def _load_dotenv() -> None:
+    env_path = Path(__file__).resolve().parent.parent / ".env"
+    if not env_path.exists():
+        return
+    for line in env_path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, val = line.partition("=")
+        os.environ.setdefault(key.strip(), val.strip().strip('"').strip("'"))
+
+
+_load_dotenv()
+
 # Where Jarvis keeps its memory — a SQLite database. In the project dir so it
 # is easy to inspect during v1 (transparency: `sqlite3 data/jarvis.db` and you
 # can see everything it knows). Upgrades to FTS/vector, then Postgres for the
@@ -30,6 +46,18 @@ EXTRACT_MODEL = os.environ.get("JARVIS_EXTRACT_MODEL", "claude-haiku-4-5-2025100
 #   {"name": "gcal", "command": "npx", "args": ["-y", "..."], "env": {...}}
 # Their tools appear in the same tool-use loop as built-in tools.
 MCP_CONFIG_FILE = DATA_DIR / "mcp.json"
+
+
+# X (Twitter) — OAuth 1.0a user-context creds for the user's own account.
+# Set these in the environment to enable the X tools; unset = X disabled.
+X_API_KEY = os.environ.get("X_API_KEY")
+X_API_SECRET = os.environ.get("X_API_SECRET")
+X_ACCESS_TOKEN = os.environ.get("X_ACCESS_TOKEN")
+X_ACCESS_SECRET = os.environ.get("X_ACCESS_SECRET")
+
+
+def x_configured() -> bool:
+    return all([X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET])
 
 
 def load_mcp_servers() -> list[dict]:

@@ -30,6 +30,15 @@ from .tools.base import Registry
 from .tools.web_search import WebSearch
 
 
+def _x_tools() -> list:
+    """X (Twitter) tools, only if creds are configured in the environment."""
+    if not config.x_configured():
+        return []
+    from .tools.x_tools import x_tools
+
+    return x_tools(config.X_API_KEY, config.X_API_SECRET, config.X_ACCESS_TOKEN, config.X_ACCESS_SECRET)
+
+
 def _connect_mcp(tools: list) -> list:
     clients = []
     for server in config.load_mcp_servers():
@@ -59,7 +68,7 @@ def run() -> int:
 
     print("Jarvis daemon starting — loading brain + connections…", flush=True)
     memory = MemoryStore(config.DB_FILE, embedder=LocalEmbedder())
-    tools = [WebSearch()]
+    tools = [WebSearch(), *_x_tools()]
     mcp_clients = _connect_mcp(tools)   # WhatsApp etc. now stay connected here
     brain = Brain(
         llm=ClaudeLLM(model=config.LLM_MODEL),

@@ -14,3 +14,6 @@ whatsapp-bridge/node_modules/
 whatsapp-bridge/auth_info/
 whatsapp-bridge/data/
 whatsapp-bridge/*.txt
+
+# Secrets
+.env

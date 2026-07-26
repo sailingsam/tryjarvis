@@ -9,3 +9,6 @@ ddgs>=9.0
 
 # Tools: MCP client (external tool servers).
 mcp>=1.0
+
+# X (Twitter) API
+tweepy>=4.16
