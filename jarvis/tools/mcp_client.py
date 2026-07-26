@@ -109,15 +109,31 @@ class MCPTool(Tool):
         self.name = f"{_sanitize(client.name)}_{_sanitize(meta.name)}"[:64]
         self.description = getattr(meta, "description", "") or ""
         self.input_schema = getattr(meta, "inputSchema", None) or {"type": "object", "properties": {}}
-        ann = getattr(meta, "annotations", None)
-        read_only = bool(getattr(ann, "readOnlyHint", False)) if ann else False
-        self.needs_confirm = not read_only    # unknown/writing tools → confirm first
+        self.needs_confirm = _infer_confirm(meta)
 
     def execute(self, **kwargs) -> str:
         return self._client.call(self._remote_name, kwargs)
 
     def confirmation(self, **kwargs) -> str:
         return f"Run {self.name} with {kwargs}? (yes/no)"
+
+
+# Verbs that imply a tool changes the world → confirm before running.
+_MUTATION_VERBS = (
+    "send", "post", "create", "delete", "remove", "update", "reply", "write",
+    "add", "set", "mark", "revoke", "edit", "archive", "mute", "block", "leave",
+)
+
+
+def _infer_confirm(meta) -> bool:
+    """Decide if a tool needs confirmation. Honour the server's readOnlyHint if
+    present; otherwise guess from the tool name — mutation verbs → confirm,
+    everything else (list/get/search/read) runs freely."""
+    ann = getattr(meta, "annotations", None)
+    if ann is not None and getattr(ann, "readOnlyHint", None) is not None:
+        return not bool(ann.readOnlyHint)
+    name = (getattr(meta, "name", "") or "").lower()
+    return any(v in name for v in _MUTATION_VERBS)
 
 
 def connect(name: str, command: str, args: list[str], env: dict | None = None,
