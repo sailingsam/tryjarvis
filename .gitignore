@@ -8,3 +8,9 @@ data/
 
 # Third-party MCP servers (heavy; hold their own auth/data)
 vendor/
+
+# Our WhatsApp bridge — commit source, not deps/auth/data
+whatsapp-bridge/node_modules/
+whatsapp-bridge/auth_info/
+whatsapp-bridge/data/
+whatsapp-bridge/*.txt
