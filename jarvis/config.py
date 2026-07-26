@@ -13,6 +13,10 @@ from pathlib import Path
 DATA_DIR = Path(os.environ.get("JARVIS_DATA_DIR", Path(__file__).resolve().parent.parent / "data"))
 DB_FILE = DATA_DIR / "jarvis.db"
 
+# Unix socket for the persistent daemon. When it's up, the CLI is a thin client
+# that talks to it (so WhatsApp etc. stay connected and capture messages).
+SOCKET_FILE = DATA_DIR / "jarvis.sock"
+
 # Reasoning model — used for the conversational reply.
 LLM_MODEL = os.environ.get("JARVIS_MODEL", "claude-sonnet-5")
 

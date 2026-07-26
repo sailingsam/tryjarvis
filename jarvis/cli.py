@@ -123,12 +123,51 @@ def _daily_brief() -> None:
     print(brain.brief())
 
 
+def _client_conversation() -> None:
+    """Thin client: talk to the running daemon over its socket. The daemon holds
+    the brain + live connections; we just relay text and handle confirmations."""
+    import json
+    import socket
+
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    s.connect(str(config.SOCKET_FILE))
+    f = s.makefile("rw")
+    print("Connected to Jarvis (daemon). Type 'exit' to leave.\n")
+
+    from .io.text_io import _EXIT
+
+    while True:
+        try:
+            text = input("you  > ").strip()
+        except (EOFError, KeyboardInterrupt):
+            break
+        if not text or text.lower() in _EXIT:
+            break
+        f.write(json.dumps({"type": "say", "text": text}) + "\n")
+        f.flush()
+        while True:
+            line = f.readline()
+            if not line:
+                print("(daemon disconnected)")
+                return
+            msg = json.loads(line)
+            if msg["type"] == "confirm_prompt":
+                print(f"jarvis> {msg['text']}")
+                ans = input("  > ").strip()
+                f.write(json.dumps({"type": "input", "text": ans}) + "\n")
+                f.flush()
+            elif msg["type"] == "reply":
+                print(f"jarvis> {msg['text']}\n")
+                break
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="jarvis", description="Your personal Jarvis (v1).")
     sub = parser.add_subparsers(dest="cmd")
     sub.add_parser("memory", help="show everything Jarvis remembers (and why)")
     sub.add_parser("commitments", help="show open loops Jarvis is tracking")
     sub.add_parser("brief", help="a short daily brief from memory + open loops")
+    sub.add_parser("daemon", help="run the persistent daemon (keeps WhatsApp etc. connected)")
     parser.add_argument("--voice", action="store_true", help="use the microphone instead of text")
     args = parser.parse_args(argv)
 
@@ -141,9 +180,18 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "brief":
         _daily_brief()
         return 0
+    if args.cmd == "daemon":
+        from .daemon import run
+        return run()
 
+    # If a daemon is up, talk to it (it holds the live connections). Otherwise
+    # run everything in-process, as before.
+    from . import daemon
     try:
-        _run_conversation(voice=args.voice)
+        if not args.voice and daemon.is_running():
+            _client_conversation()
+        else:
+            _run_conversation(voice=args.voice)
     except KeyboardInterrupt:
         print()
     return 0
