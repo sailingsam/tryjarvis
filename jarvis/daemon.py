@@ -49,6 +49,9 @@ def _connect_mcp(tools: list) -> list:
 
 
 def run() -> int:
+    if is_running():
+        print("Jarvis daemon is already running.")
+        return 0
     sock_path = config.SOCKET_FILE
     if sock_path.exists():
         sock_path.unlink()          # clear a stale socket from a previous run

@@ -184,17 +184,47 @@ def main(argv: list[str] | None = None) -> int:
         from .daemon import run
         return run()
 
-    # If a daemon is up, talk to it (it holds the live connections). Otherwise
-    # run everything in-process, as before.
-    from . import daemon
+    # When there are live connections worth keeping warm (MCP servers like
+    # WhatsApp), run through the daemon — auto-starting it if needed — so the
+    # connection persists and stays warm. Otherwise just run in-process.
     try:
-        if not args.voice and daemon.is_running():
-            _client_conversation()
-        else:
-            _run_conversation(voice=args.voice)
+        if not args.voice and (_daemon().is_running() or config.load_mcp_servers()):
+            if _ensure_daemon():
+                _client_conversation()
+                return 0
+        _run_conversation(voice=args.voice)
     except KeyboardInterrupt:
         print()
     return 0
+
+
+def _daemon():
+    from . import daemon
+    return daemon
+
+
+def _ensure_daemon() -> bool:
+    """Ensure a daemon is running (start it in the background if not). Returns
+    True if one is available to talk to. First launch takes a moment while it
+    connects; after that it stays warm in the background."""
+    import subprocess
+    import time
+
+    if _daemon().is_running():
+        return True
+    config.DATA_DIR.mkdir(parents=True, exist_ok=True)
+    log = open(config.DATA_DIR / "daemon.log", "a")
+    print("Starting Jarvis in the background (first launch takes a moment)…")
+    subprocess.Popen(
+        [sys.executable, "-m", "jarvis", "daemon"],
+        stdout=log, stderr=log, start_new_session=True,
+    )
+    for _ in range(75):                 # up to ~150s for WhatsApp to connect
+        if _daemon().is_running():
+            return True
+        time.sleep(2)
+    print("(daemon didn't come up — running in-process this time)")
+    return False
 
 
 if __name__ == "__main__":

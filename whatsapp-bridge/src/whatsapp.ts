@@ -137,6 +137,10 @@ export async function startWhatsAppConnection(
     // Groups were being dropped by shouldIgnoreJid; keep them. And pull the
     // full history WhatsApp offers so chats/messages actually populate.
     syncFullHistory: true,
+    // Group sends fetch every member's encryption session (assertSessions →
+    // USync) — slow on a cold socket. Give those queries more room than the
+    // 60s default; a warm daemon connection is what really makes this reliable.
+    defaultQueryTimeoutMs: 90_000,
   });
 
   sock.ev.process(async (events) => {

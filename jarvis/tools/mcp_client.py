@@ -92,7 +92,7 @@ class MCPClient:
                 self._ready.set()
                 await self._stop.wait()   # keep the session open until close()
 
-    def call(self, remote_name: str, arguments: dict, timeout: float = 60.0) -> str:
+    def call(self, remote_name: str, arguments: dict, timeout: float = 120.0) -> str:
         fut = asyncio.run_coroutine_threadsafe(
             self._session.call_tool(remote_name, arguments), self._loop
         )
