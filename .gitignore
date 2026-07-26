@@ -5,3 +5,6 @@ __pycache__/
 
 # Runtime data — Jarvis's memory is per-user, not source
 data/
+
+# Third-party MCP servers (heavy; hold their own auth/data)
+vendor/
