@@ -10,6 +10,13 @@ from __future__ import annotations
 import argparse
 import sys
 
+# Importing readline gives input() proper line editing — arrow keys, cursor
+# movement, and in-session history — instead of raw ^[[A escape codes.
+try:
+    import readline  # noqa: F401
+except ImportError:
+    pass
+
 from . import config
 from .core.brain import Brain
 from .core.memory import MemoryStore
