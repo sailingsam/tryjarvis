@@ -77,7 +77,8 @@ def _connect_mcp(tools: list) -> list:
             from .tools.mcp_client import connect
 
             client, mcp_tools = connect(
-                server["name"], server["command"], server.get("args", []), server.get("env")
+                server["name"], server["command"], server.get("args", []),
+                server.get("env"), server.get("cwd"),
             )
             clients.append(client)
             tools.extend(mcp_tools)

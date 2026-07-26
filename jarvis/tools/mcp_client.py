@@ -39,11 +39,13 @@ def _result_text(result) -> str:
 class MCPClient:
     """A persistent connection to one MCP server, usable from sync code."""
 
-    def __init__(self, name: str, command: str, args: list[str], env: dict | None = None):
+    def __init__(self, name: str, command: str, args: list[str], env: dict | None = None,
+                 cwd: str | None = None):
         self.name = name
         self._command = command
         self._args = args
         self._env = env
+        self._cwd = cwd
         self._loop: asyncio.AbstractEventLoop | None = None
         self._thread: threading.Thread | None = None
         self._session = None
@@ -74,7 +76,9 @@ class MCPClient:
         from mcp import ClientSession, StdioServerParameters
         from mcp.client.stdio import stdio_client
 
-        params = StdioServerParameters(command=self._command, args=self._args, env=self._env)
+        params = StdioServerParameters(
+            command=self._command, args=self._args, env=self._env, cwd=self._cwd
+        )
         async with stdio_client(params) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()
@@ -116,8 +120,9 @@ class MCPTool(Tool):
         return f"Run {self.name} with {kwargs}? (yes/no)"
 
 
-def connect(name: str, command: str, args: list[str], env: dict | None = None):
+def connect(name: str, command: str, args: list[str], env: dict | None = None,
+            cwd: str | None = None):
     """Start a server and return (client, [MCPTool, ...])."""
-    client = MCPClient(name, command, args, env)
+    client = MCPClient(name, command, args, env, cwd)
     client.start()
     return client, [MCPTool(client, m) for m in client.tools]
