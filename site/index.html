@@ -309,7 +309,8 @@ footer{position:relative;border-top:1px solid var(--hair);overflow:hidden;
 .footrow .mono{color:var(--muted)}
 .footbrand{display:flex;align-items:center;gap:.8rem}
 .footbrand .mark{width:2.6rem;height:2.6rem}
-.sublink{color:var(--muted);transition:color .3s}
+.sublink{display:inline-flex;align-items:center;gap:.45rem;color:var(--muted);transition:color .3s}
+.sublink svg{width:1.05rem;height:1.05rem;fill:currentColor;flex:none}
 .sublink:hover{color:var(--amber-dp)}
 .wordmark{display:block;width:100%;margin-block:clamp(1.2rem,3.5vh,2.2rem) clamp(.6rem,1.5vh,1rem)}
 .wordmark text{font-family:'Spectral',Georgia,serif;font-weight:300;fill:var(--ink)}
@@ -509,7 +510,9 @@ footer{position:relative;border-top:1px solid var(--hair);overflow:hidden;
   <div class="wrap">
     <div class="footrow">
       <span class="mono">a chief of staff for everyone</span>
-      <a class="sublink mono" href="https://www.linkedin.com/company/mantrinai/" target="_blank" rel="noopener">LinkedIn</a>
+      <a class="sublink mono" href="https://www.linkedin.com/company/mantrinai/" target="_blank" rel="noopener" aria-label="Mantrin on LinkedIn">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9h4v12H3V9zm7 0h3.8v1.7h.05c.53-.95 1.82-1.95 3.75-1.95 4 0 4.4 2.5 4.4 5.75V21h-4v-5.6c0-1.35-.03-3.1-1.9-3.1-1.9 0-2.2 1.45-2.2 2.99V21h-4V9z"/></svg>
+        LinkedIn</a>
     </div>
 
     <svg class="wordmark" viewBox="0 0 1000 176" role="img" aria-label="Mantrin">
