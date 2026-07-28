@@ -36,6 +36,9 @@ bigger** — it reaches roughly 4%–31% of the width and covers the bottom half
 the banner. Text sits entirely to the right of it, and the secondary line is
 sized to still be readable on a phone.
 
+`tryjarvis.in` rides on the secondary line in amber, so it stays inside the safe
+zone and still reads as the call to action.
+
 Checked against mocks of both the desktop and mobile layouts. If you change the
 copy, keep it right of ~40% and re-check on a phone.
 
