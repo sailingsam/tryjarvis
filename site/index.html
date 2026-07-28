@@ -5,11 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Mantrin: a chief of staff for everyone</title>
 <meta name="description" content="The chief of staff you were never going to hire. Mantrin knows your people, holds your promises, guards your calendar and closes the loops you forget, and you reach it just by speaking, from any device." />
+<meta name="robots" content="index, follow, max-image-preview:large" />
 <link rel="canonical" href="https://tryjarvis.in/" />
 
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="Mantrin" />
 <meta property="og:url" content="https://tryjarvis.in/" />
+<meta property="og:locale" content="en_US" />
 <meta property="og:title" content="Mantrin: the chief of staff you were never going to hire" />
 <meta property="og:description" content="Knows your people, holds your promises, guards your calendar, closes the loops you forget. Not a chatbot, not another AI agent." />
 <meta property="og:image" content="https://tryjarvis.in/og.jpg" />
@@ -27,6 +29,7 @@
 
 <meta name="theme-color" content="#ffffff" />
 <link rel="icon" type="image/svg+xml" href="logo.svg" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600&family=Spectral:wght@300;400&family=Spline+Sans+Mono:wght@400&display=swap" rel="stylesheet" />
@@ -344,6 +347,41 @@ footer{position:relative;border-top:1px solid var(--hair);overflow:hidden;
 .js .head>*:nth-child(2){animation-delay:.1s}
 @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
 </style>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://tryjarvis.in/#organization",
+      "name": "Mantrin",
+      "url": "https://tryjarvis.in/",
+      "logo": "https://tryjarvis.in/logo.svg",
+      "image": "https://tryjarvis.in/og.jpg",
+      "description": "Mantrin is a personal AI chief of staff. It remembers your people, promises and projects, and acts on them across every device you speak to.",
+      "sameAs": ["https://www.linkedin.com/company/mantrinai/"]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://tryjarvis.in/#website",
+      "url": "https://tryjarvis.in/",
+      "name": "Mantrin",
+      "inLanguage": "en",
+      "publisher": { "@id": "https://tryjarvis.in/#organization" }
+    },
+    {
+      "@type": "SoftwareApplication",
+      "name": "Mantrin",
+      "url": "https://tryjarvis.in/",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web, macOS, Windows, Linux, Android, iOS",
+      "description": "A personal AI chief of staff: it knows your people, holds your promises, guards your calendar and closes the loops you forget. You reach it by speaking, from whatever device you are near.",
+      "publisher": { "@id": "https://tryjarvis.in/#organization" }
+    }
+  ]
+}
+</script>
 </head>
 <body>
 <script>document.documentElement.classList.add('js')</script>
