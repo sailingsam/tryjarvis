@@ -8,7 +8,7 @@
 <meta property="og:title" content="Mantrin — the chief of staff you were never going to hire" />
 <meta property="og:description" content="Knows your people, holds your promises, guards your calendar, closes the loops you forget. Not a chatbot." />
 <meta name="theme-color" content="#ffffff" />
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='6.5' fill='%23d99a2b'/%3E%3Ccircle cx='16' cy='16' r='12' fill='none' stroke='%23d99a2b' stroke-opacity='.4'/%3E%3C/svg%3E" />
+<link rel="icon" type="image/svg+xml" href="logo.svg" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600&family=Spectral:wght@300;400&family=Spline+Sans+Mono:wght@400&display=swap" rel="stylesheet" />
@@ -67,7 +67,8 @@ a{color:inherit;text-decoration:none}
 .nav{border-bottom:1px solid var(--hair);background:oklch(1 0 0/.55);backdrop-filter:blur(10px) saturate(1.1);
   position:sticky;top:0;z-index:10}
 .nav .wrap{display:flex;align-items:center;justify-content:space-between;padding-block:1rem}
-.brand{display:flex;align-items:center;gap:.6rem;color:var(--ink);font-weight:600;letter-spacing:-0.015em}
+.brand{display:flex;align-items:center;gap:.55rem;color:var(--ink);font-weight:600;letter-spacing:-0.015em}
+.mark{width:1.5rem;height:1.5rem;display:block;flex:none}
 .nav .mono{color:var(--muted)}
 @media(max-width:600px){.nav .mono{display:none}}
 
@@ -331,7 +332,7 @@ footer{position:relative;border-top:1px solid var(--hair);overflow:hidden;
 <div class="grain" aria-hidden="true"></div>
 
 <nav class="nav"><div class="wrap">
-  <span class="brand"><span class="dot"></span> Mantrin</span>
+  <span class="brand"><img class="mark" src="logo.svg" alt="" width="24" height="24" /> Mantrin</span>
   <span class="mono">a chief of staff for everyone</span>
 </div></nav>
 
