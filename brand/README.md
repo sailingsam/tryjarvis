@@ -30,9 +30,14 @@ hero diagram on the site animates.
 | `linkedin-page-banner.png` | 2256×382 (2× of 1128×191) | company page cover |
 | `linkedin-profile-banner.png` | 3168×792 (2× of 1584×396) | personal profile cover |
 
-Both keep the left third empty on purpose — LinkedIn drops the page logo (or
-your profile photo) over the bottom-left corner. Verified against a mock of the
-page layout; nothing important gets covered.
+Both keep the left ~40% empty on purpose. LinkedIn overlays the page logo (or
+your profile photo) on the bottom-left, and on **mobile that overlay is much
+bigger** — it reaches roughly 4%–31% of the width and covers the bottom half of
+the banner. Text sits entirely to the right of it, and the secondary line is
+sized to still be readable on a phone.
+
+Checked against mocks of both the desktop and mobile layouts. If you change the
+copy, keep it right of ~40% and re-check on a phone.
 
 ## Colours
 
