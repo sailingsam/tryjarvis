@@ -23,6 +23,17 @@ hero diagram on the site animates.
 | `mantrin-lockup.png` | on light backgrounds |
 | `mantrin-lockup-onDark.png` | on dark backgrounds |
 
+## LinkedIn
+
+| File | Size | Where |
+|---|---|---|
+| `linkedin-page-banner.png` | 2256×382 (2× of 1128×191) | company page cover |
+| `linkedin-profile-banner.png` | 3168×792 (2× of 1584×396) | personal profile cover |
+
+Both keep the left third empty on purpose — LinkedIn drops the page logo (or
+your profile photo) over the bottom-left corner. Verified against a mock of the
+page layout; nothing important gets covered.
+
 ## Colours
 
 | Role | Value |
