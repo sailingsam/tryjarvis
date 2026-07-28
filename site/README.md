@@ -13,17 +13,30 @@ Pick whichever is easiest:
   custom domain.
 - **Any cPanel / VPS** — upload `index.html` to the web root.
 
-## Waitlist
+## The call to action
 
-The form currently posts to `mailto:hello@tryjarvis.in`, which opens the
-visitor's mail client. That's a placeholder. For real capture, swap the
-`<form action>` for a form service (Tally, Formspree, Buttondown) — one
-attribute change, no other edits needed.
+Both CTAs ("Book a call") link to `https://cal.com/sailingsam`. No email capture
+and no backend, deliberately: pre-launch, a conversation is worth more than a
+row in a table. To change where it points, edit the two `.cta` hrefs.
+
+## What's on the page
+
+1. **Hero** — the role, plus a live diagram: you speak to one device, the one
+   mind hears it, and every other device ends up knowing.
+2. **Dark band** — the positioning: everyone is building AI tools; this is the
+   one who uses them for you.
+3. **Say it once** — the said → remembered → done demo, then Remembers /
+   Understands / Acts with a memory-compounds visual.
+4. **It doesn't wait to be asked** — proactivity, and asking before acting.
+5. **man·trin** — a type specimen explaining the name for people outside India.
+6. **Close** — the invitation.
 
 ## Notes
 
-- Content is visible without JavaScript; JS only adds motion (a slow breathing
-  "presence" canvas and translate-only reveals). Respects
-  `prefers-reduced-motion`.
-- Hero is sized to fit one screen down to ~700px tall viewports.
-- Colors are OKLCH; the single accent is the gold used for the presence mark.
+- Content renders without JavaScript; JS only drives motion (the constellation
+  cycle, the ambient motes, translate-only reveals). Honours
+  `prefers-reduced-motion`, and pauses when the tab is hidden.
+- Hero fits one screen down to ~700px tall viewports.
+- Colours are OKLCH: white surfaces, one amber accent, one drenched dark band.
+- Background is three light layers: drifting "memory" motes on a canvas, a soft
+  amber presence aura, and a fine grain so the white reads as paper.
