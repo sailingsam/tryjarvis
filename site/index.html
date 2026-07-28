@@ -510,12 +510,22 @@ footer{position:relative;border-top:1px solid var(--hair);overflow:hidden;
 <footer>
   <div class="wrap">
     <div class="footrow">
-      <span class="footbrand"><img class="mark" src="logo.svg" alt="" width="42" height="42" /><span class="mono">a chief of staff for everyone</span></span>
+      <span class="mono">a chief of staff for everyone</span>
       <a class="footlink" href="https://cal.com/sailingsam" target="_blank" rel="noopener">Book a call <span class="arw" aria-hidden="true">→</span></a>
     </div>
 
     <svg class="wordmark" viewBox="0 0 1000 176" role="img" aria-label="Mantrin">
-      <text x="0" y="158" font-size="215" textLength="1000" lengthAdjust="spacing">Mantrin<tspan class="pt">.</tspan></text>
+      <!-- the mark, scaled to the wordmark's cap height -->
+      <g transform="translate(0 18) scale(2.1875)" fill="none" stroke="#d99a2b" stroke-width="2.6" stroke-linecap="round">
+        <path d="M32 12v6M32 46v6M12 32h6M46 32h6"/>
+        <circle cx="32" cy="32" r="13.5"/>
+      </g>
+      <g transform="translate(0 18) scale(2.1875)" fill="#d99a2b">
+        <circle cx="32" cy="32" r="6"/>
+        <circle cx="32" cy="7" r="5"/><circle cx="32" cy="57" r="5"/>
+        <circle cx="7" cy="32" r="5"/><circle cx="57" cy="32" r="5"/>
+      </g>
+      <text x="180" y="158" font-size="215" textLength="820" lengthAdjust="spacing">Mantrin<tspan class="pt">.</tspan></text>
     </svg>
 
     <div class="footbase">
