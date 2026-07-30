@@ -93,27 +93,36 @@ def _today() -> str:
     return datetime.now().strftime("%A, %Y-%m-%d")
 
 
-# Affirmatives accepted at a confirmation prompt (text + common Hinglish).
+# Unambiguous confirmation answers (text + common Hinglish) — matched exactly,
+# after punctuation. Anything else is real language and goes to the model:
+# people rarely say a bare yes, and keyword rules mistake "no, I said yes" for
+# a refusal. Rules first, AI when language actually needs understanding
+# (philosophy #17) — a confirmation answer is precisely such a case.
 _YES = {"yes", "y", "yeah", "yep", "ok", "okay", "sure", "confirm", "do it", "go ahead",
-        "haan", "ha", "haa", "kar", "kar do", "krdo", "theek", "thik", "ok kar"}
+        "haan", "ha", "haa", "kar", "kar do", "krdo", "theek", "thik", "ok kar",
+        "yes please", "haan bhej de", "bhej de", "send it"}
+_NO = {"no", "n", "nope", "nah", "cancel", "stop", "nahi", "nhi", "mat", "ruko",
+       "rehne de", "mat bhej", "don t", "dont"}
 
+_CONSENT_SYSTEM = """A user was asked to confirm an action before their assistant performs it. Decide from their reply whether they are giving permission. Read intent, not keywords — any language or mix, however phrased.
 
-def _is_yes(answer: str) -> bool:
-    """Whether an answer means yes — robust to how speech arrives as text.
+The action may be irreversible, so only answer yes when the reply clearly
+addresses the question AND clearly consents. If the reply does not engage with
+the question at all — a lone name, a stray word, mis-transcribed speech — that
+is unclear, never yes. When torn between yes and unclear, answer unclear: the
+assistant just asks again, which costs nothing, while a wrong yes sends
+something that cannot be unsent.
 
-    A transcriber writes "Yes." or "Yes, ma'am." — with punctuation and trailing
-    words — and an exact set lookup calls both a decline. That is how a user
-    said yes twice and watched the message not send, twice. So: strip
-    punctuation, then accept an exact phrase or a leading yes-word. Leading
-    only — "no, I said yes" must stay a no.
-    """
-    cleaned = re.sub(r"[^\w\s]", " ", answer.lower()).strip()
-    if not cleaned:
-        return False
-    if cleaned in _YES:
-        return True
-    words = cleaned.split()
-    return words[0] in _YES or " ".join(words[:2]) in _YES
+Examples:
+- "No, I said yes." -> yes (correcting a mishearing; they want it done)
+- "Yes, but change the message first." -> no (not as proposed)
+- "Obviously, go for it." -> yes
+- "Hmm... theek hai, kar de." -> yes
+- "Wait." -> no
+- "Saksham." (just a name) -> unclear
+- anything unrelated or garbled -> unclear
+
+Answer with exactly one word: yes, no, or unclear."""
 
 
 class Brain:
@@ -161,19 +170,58 @@ class Brain:
         self._update_memory()
         return reply
 
+    def _consent(self, question: str, answer: str) -> str:
+        """Did the user say yes? — 'yes', 'no' or 'unclear'.
+
+        An exact match on unambiguous words is free; everything else is
+        language and goes to the cheap model, because people confirm in
+        sentences ("no, I said yes", "obviously, bhej de") and keyword rules
+        misread exactly the answers that matter.
+        """
+        cleaned = " ".join(re.sub(r"[^\w\s]", " ", answer.lower()).split())
+        if not cleaned:
+            return "no"                     # silence is not consent
+        if cleaned in _YES:
+            return "yes"
+        if cleaned in _NO:
+            return "no"
+        try:
+            raw = self._extractor.generate(
+                _CONSENT_SYSTEM,
+                [{"role": "user", "content": f'Asked: "{question}"\nReply: "{answer}"'}],
+            ).strip().lower()
+        except Exception:                   # degraded mode: only exact words count
+            return "no"
+        for verdict in ("unclear", "yes", "no"):
+            if raw.startswith(verdict):
+                return verdict
+        return "unclear"
+
     def _make_executor(self, io):
         """Runs a tool the model asked for — gating outward/irreversible ones
         behind an IO confirmation first. Returns the tool's result as a string
         (a decline is a normal result, not an error, so the model handles it)."""
+        from ..tools.base import CONFIRM_FIELD
+
         def executor(name: str, tool_input: dict) -> str:
             tool = self._tools.get(name)
             if tool is None:
                 return f"(no such tool: {name})"
+            # The model phrases the confirmation itself (a required argument on
+            # every gated tool) because only it knows the human names involved —
+            # the tool's own arguments hold ids a person should never hear.
+            tool_input = dict(tool_input)
+            question = tool_input.pop(CONFIRM_FIELD, None)
             if os.environ.get("JARVIS_DEBUG"):
                 print(f"  [tool] {name}({tool_input})", file=sys.stderr)
             if tool.needs_confirm and io is not None:
-                io.speak(tool.confirmation(**tool_input))
-                if not _is_yes(io.listen() or ""):
+                question = question or tool.confirmation(**tool_input)
+                io.speak(question)
+                verdict = self._consent(question, io.listen() or "")
+                if verdict == "unclear":
+                    io.speak("Sorry — was that a yes or a no?")
+                    verdict = self._consent(question, io.listen() or "")
+                if verdict != "yes":
                     return "The user declined; the action was not performed."
             return tool.execute(**tool_input)
         return executor

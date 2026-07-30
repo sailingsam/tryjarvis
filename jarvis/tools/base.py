@@ -15,6 +15,27 @@ in as Tools too, into this same registry.
 
 from __future__ import annotations
 
+import json
+
+# Injected into every gated tool's schema. The model fills it with the question
+# a person would ask — "Send 'happy birthday' to Aatmik on WhatsApp?" — because
+# only the model knows the human names behind the ids in the real arguments.
+# A template built from the arguments can only ever read the ids aloud, and a
+# human PA never says a 14-digit number to ask permission (philosophy #19).
+# The brain's executor speaks this field and strips it before the tool runs.
+CONFIRM_FIELD = "say_to_confirm"
+
+_CONFIRM_SPEC = {
+    "type": "string",
+    "description": (
+        "REQUIRED. One short spoken question asking the user to confirm this "
+        "exact action, phrased the way a person would ask — name people and "
+        "things by their human names and quote the content being sent. Never "
+        "include ids, phone numbers, JSON or field names. "
+        "Example: \"Send 'running late, be there in 10' to Mridul on WhatsApp?\""
+    ),
+}
+
 
 class Tool:
     name: str = ""
@@ -26,12 +47,19 @@ class Tool:
         raise NotImplementedError
 
     def confirmation(self, **kwargs) -> str:
-        """The question to ask before running, when needs_confirm is set."""
+        """Fallback question if the model didn't provide one, when needs_confirm."""
         return f"Go ahead with {self.name}?"
 
     def spec(self) -> dict:
         """The shape the model sees when deciding whether to call this tool."""
-        return {"name": self.name, "description": self.description, "input_schema": self.input_schema}
+        schema = self.input_schema
+        if self.needs_confirm:
+            schema = json.loads(json.dumps(schema))     # deep copy, leave the original alone
+            schema.setdefault("properties", {})[CONFIRM_FIELD] = _CONFIRM_SPEC
+            required = schema.setdefault("required", [])
+            if CONFIRM_FIELD not in required:
+                required.append(CONFIRM_FIELD)
+        return {"name": self.name, "description": self.description, "input_schema": schema}
 
 
 class Registry:

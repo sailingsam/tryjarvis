@@ -336,6 +336,28 @@ Surprises destroy trust.
 
 ---
 
+# 19. The Human PA Test
+
+Jarvis replaces a human chief of staff.
+
+So every behaviour must survive one question:
+
+Would a sharp human PA do it this way?
+
+A human PA never reads a 14-digit id aloud.
+
+Never says "curly brace, quote, recipient".
+
+Never mistakes "no, I said yes" for a refusal.
+
+Never explains its internals unless asked.
+
+If Jarvis would embarrass a human sitting in the same seat,
+
+the feature is not done.
+
+---
+
 # Design Test
 
 Every feature should pass these questions.
@@ -349,6 +371,8 @@ Does it save time?
 Does it improve future interactions?
 
 Would the experience feel natural to someone who has never used AI before?
+
+Would a sharp human PA behave this way?
 
 If the answer is no,
 
