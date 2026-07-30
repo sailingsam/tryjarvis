@@ -113,16 +113,35 @@ is unclear, never yes. When torn between yes and unclear, answer unclear: the
 assistant just asks again, which costs nothing, while a wrong yes sends
 something that cannot be unsent.
 
+People think out loud, especially when speaking. A reply may wander through
+no and yes before settling — judge where they END UP, not where they started.
+
 Examples:
 - "No, I said yes." -> yes (correcting a mishearing; they want it done)
 - "Yes, but change the message first." -> no (not as proposed)
 - "Obviously, go for it." -> yes
 - "Hmm... theek hai, kar de." -> yes
+- "No, wait... no, no. Yeah actually, I'm okay with this. Send it." -> yes
+  (they thought out loud and landed on yes)
 - "Wait." -> no
 - "Saksham." (just a name) -> unclear
 - anything unrelated or garbled -> unclear
 
 Answer with exactly one word: yes, no, or unclear."""
+
+_PRIOR_CONSENT_SYSTEM = """An assistant is about to perform an outward action and must not do it without the user's permission. You see the action and the conversation that led to it. Decide whether the user has ALREADY clearly approved this exact action, so asking again would just be annoying.
+
+Answer yes only when BOTH hold:
+- the assistant proposed this exact action in the conversation — the user could
+  see precisely what would be sent or done, and to whom, before approving
+- the user's reply clearly approves it as proposed
+
+Anything less is no: the user asked for the action but was never shown the
+exact content; they approved something different; their approval was vague.
+When torn, answer no — asking once more costs a few seconds, while acting
+without permission breaks trust.
+
+Answer with exactly one word: yes or no."""
 
 
 class Brain:
@@ -197,11 +216,40 @@ class Brain:
                 return verdict
         return "unclear"
 
+    def _already_consented(self, action: str) -> bool:
+        """Whether the user has already approved this exact action in the
+        conversation — in which case asking again is what a bad assistant does.
+
+        The pattern this exists for: the model proposes "I'll send Aatmik:
+        '…' — go ahead?", the user says "yeah, send it", and then the tool
+        gate asks the same question again. A human PA asks once.
+        """
+        recent = [m for m in self._history[-6:] if isinstance(m.get("content"), str)]
+        if not recent or recent[-1]["role"] != "user":
+            return False
+        transcript = "\n".join(f"{m['role']}: {m['content']}" for m in recent)
+        try:
+            raw = self._extractor.generate(
+                _PRIOR_CONSENT_SYSTEM,
+                [{"role": "user",
+                  "content": f'Action about to run: "{action}"\n\nConversation:\n{transcript}'}],
+            ).strip().lower()
+        except Exception:
+            return False                     # can't check -> ask, never assume
+        return raw.startswith("yes")
+
     def _make_executor(self, io):
         """Runs a tool the model asked for — gating outward/irreversible ones
-        behind an IO confirmation first. Returns the tool's result as a string
+        behind the user's permission. Returns the tool's result as a string
         (a decline is a normal result, not an error, so the model handles it)."""
         from ..tools.base import CONFIRM_FIELD
+
+        # Per-turn memory of what the user has ruled on, so a retry of the
+        # exact same call doesn't re-ask, and — the dangerous direction — a
+        # call the user just declined can never sneak through on the strength
+        # of consent given before the decline.
+        approved: set = set()
+        denied: set = set()
 
         def executor(name: str, tool_input: dict) -> str:
             tool = self._tools.get(name)
@@ -214,15 +262,25 @@ class Brain:
             question = tool_input.pop(CONFIRM_FIELD, None)
             if os.environ.get("JARVIS_DEBUG"):
                 print(f"  [tool] {name}({tool_input})", file=sys.stderr)
+
             if tool.needs_confirm and io is not None:
+                key = (name, json.dumps(tool_input, sort_keys=True, default=str))
                 question = question or tool.confirmation(**tool_input)
-                io.speak(question)
-                verdict = self._consent(question, io.listen() or "")
-                if verdict == "unclear":
-                    io.speak("Sorry — was that a yes or a no?")
-                    verdict = self._consent(question, io.listen() or "")
-                if verdict != "yes":
-                    return "The user declined; the action was not performed."
+                if key not in approved:
+                    # Consent already given in conversation counts — unless the
+                    # user has since declined this very call at the gate.
+                    if key not in denied and self._already_consented(question):
+                        approved.add(key)
+                    else:
+                        io.speak(question)
+                        verdict = self._consent(question, io.listen() or "")
+                        if verdict == "unclear":
+                            io.speak("Sorry — was that a yes or a no?")
+                            verdict = self._consent(question, io.listen() or "")
+                        if verdict != "yes":
+                            denied.add(key)
+                            return "The user declined; the action was not performed."
+                        approved.add(key)
             return tool.execute(**tool_input)
         return executor
 

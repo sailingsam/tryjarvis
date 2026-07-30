@@ -39,11 +39,14 @@ class LocalWhisper:
     """faster-whisper on the CPU. Free, offline, and the audio never leaves the
     machine — the honest default for someone who has not chosen a provider yet.
 
-    `base` is the accuracy/latency compromise that holds up on a laptop; `small`
-    is noticeably better if the machine can afford it.
+    `small` is the default: `base` audibly mishears — "how are you" became "how
+    would you", "Aatmik" became "Atomic" — and a chief of staff that mishears
+    is worse than one that takes a beat longer. ~460MB one-time download,
+    roughly 2x base's transcription time. Set stt_options {"model": "base"}
+    to trade accuracy back for speed; a hosted provider is the real jump.
     """
 
-    def __init__(self, model_size: str = "base", compute_type: str = "int8",
+    def __init__(self, model_size: str = "small", compute_type: str = "int8",
                  language: str | None = None):
         from faster_whisper import WhisperModel
 
