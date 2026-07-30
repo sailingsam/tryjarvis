@@ -33,6 +33,11 @@ from .. import audio, timings, wake
 _BARGE_IN_MARGIN = 1.8
 _BARGE_IN_ONSET_MS = 240        # longer than a normal onset: costly to get wrong
 
+# How long to wait for the command after the wake word before deciding nobody is
+# talking to us. Long enough for "hey jarvis" … *thinks* … "remind me to…", short
+# enough that a stray detection does not leave the mic open.
+_COMMAND_GRACE_MS = 4_000
+
 
 class VoiceIO:
     """Speech in, speech out, with the mic held open for the whole session."""
@@ -57,16 +62,19 @@ class VoiceIO:
 
         self._stream = stream or audio.FrameStream()
         self._frames = self._stream.frames()
-        floor = audio.calibrate_noise_floor(self._frames)
-        self._endpointer = audio.Endpointer(min_peak=floor)
-        self._floor = floor
+        # A brief seed so the very first thing said is judged against this room
+        # rather than a default. Only a seed: the endpointer keeps adjusting from
+        # non-speech frames, so this value stops being the operative one within a
+        # fraction of a second.
+        seed = audio.calibrate_noise_floor(self._frames)
+        self._endpointer = audio.Endpointer(min_peak=seed)
         self._listen_until = 0.0        # follow-up window; past = gate is armed
         self.turn = timings.Turn(enabled=show_timings)
 
         phrase = getattr(self._gate, "_phrase", "")
         gated = getattr(self._gate, "is_gate", False)
         detail = f", say “{phrase.replace('_', ' ')}”" if gated and phrase else ", no wake word"
-        print(f"(listening — noise floor {floor}{detail})", flush=True)
+        print(f"(listening — noise floor {seed}{detail})", flush=True)
 
     # ------------------------------------------------------------------ in
 
@@ -81,16 +89,26 @@ class VoiceIO:
                 if armed:
                     if not self._await_wake():
                         return None
-                    # The command follows in the same breath as the wake word, so
-                    # do not wait for a fresh onset.
+                    # Wait for the command rather than assuming it is already
+                    # underway. People say the wake word both ways — "hey jarvis,
+                    # remind me…" in one breath, and "hey jarvis" … pause …
+                    # "remind me". Requiring an onset handles both, because the
+                    # onset is only 120ms and the pre-roll keeps the 300ms before
+                    # it, so nothing is clipped in the run-on case. Assuming
+                    # speech had begun broke the pause case outright: it collected
+                    # silence, transcribed nothing, and went back to sleep.
                     utterance = self._endpointer.collect_one(
-                        self._frames, already_speaking=True
+                        self._frames, onset_timeout_ms=_COMMAND_GRACE_MS
                     )
                 else:
                     utterance = self._endpointer.collect_one(self._frames)
 
             if utterance is None:
                 return None
+            if not utterance:
+                # Wake word, then nothing. Re-arm rather than answering silence.
+                self._gate.reset()
+                continue
 
             with self.turn.stage("stt"):
                 hints = self._hints() if self._hints else None
@@ -165,7 +183,9 @@ class VoiceIO:
                 measured += 1
                 continue
 
-            threshold = max(self._floor, int(own_voice * _BARGE_IN_MARGIN))
+            # The endpointer's gate, not a startup snapshot, so interrupting
+            # tracks the room as it changes.
+            threshold = max(self._endpointer.gate, int(own_voice * _BARGE_IN_MARGIN))
             run = run + 1 if peak >= threshold else 0
             if run >= onset_needed:
                 playback.stop()

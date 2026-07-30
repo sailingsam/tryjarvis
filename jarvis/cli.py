@@ -151,16 +151,30 @@ def _daily_brief() -> None:
     print(brain.brief())
 
 
-def _client_conversation() -> None:
+def _client_conversation(speak: bool = False) -> None:
     """Thin client: talk to the running daemon over its socket. The daemon holds
-    the brain + live connections; we just relay text and handle confirmations."""
+    the brain + live connections; we just relay text and handle confirmations.
+
+    `speak` reads replies out loud here in the client. That is dictation mode: the
+    user's own app types the input, and the voice belongs to whoever is at this
+    terminal — the daemon's microphone is a different conversation.
+    """
     import json
     import socket
+
+    voice = _client_voice() if speak else None
+
+    def show(text: str) -> None:
+        print(f"jarvis> {text}\n")
+        if voice is not None:
+            playback = voice.speak(text)
+            if playback is not None:
+                playback.wait(timeout=120)
 
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     s.connect(str(config.SOCKET_FILE))
     f = s.makefile("rw")
-    print("Connected to Jarvis (daemon). Type 'exit' to leave.\n")
+    print("Connected to Mantrin (daemon). Type 'exit' to leave.\n")
 
     from .io.text_io import _EXIT
 
@@ -180,13 +194,24 @@ def _client_conversation() -> None:
                 return
             msg = json.loads(line)
             if msg["type"] == "confirm_prompt":
-                print(f"jarvis> {msg['text']}")
+                show(msg["text"])
                 ans = input("  > ").strip()
                 f.write(json.dumps({"type": "input", "text": ans}) + "\n")
                 f.flush()
             elif msg["type"] == "reply":
-                print(f"jarvis> {msg['text']}\n")
+                show(msg["text"])
                 break
+
+
+def _client_voice():
+    """A voice for the client, or None if one cannot be built."""
+    from .providers import voice_registry as registry
+
+    try:
+        return registry.build_tts(config.TTS_PROVIDER, **config.TTS_OPTIONS)
+    except registry.Unavailable as e:
+        print(f"({e} — replies will be printed only)")
+        return None
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -200,9 +225,9 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("brief", help="a short daily brief from memory + open loops")
     sub.add_parser("daemon", help="run the always-on daemon in the foreground")
     parser.add_argument("--text", action="store_true",
-                        help="type instead of talking (the mic stays with the daemon)")
+                        help="type instead of talking, and leave the microphone alone")
     parser.add_argument("--dictate", action="store_true",
-                        help="type with your own dictation app; Mantrin still speaks back")
+                        help="dictate with your own app; Mantrin speaks the reply back")
     parser.add_argument("--stt", metavar="NAME", help="override the speech-to-text provider")
     parser.add_argument("--tts", metavar="NAME", help="override the voice provider")
     parser.add_argument("--timings", action="store_true",
@@ -211,14 +236,27 @@ def main(argv: list[str] | None = None) -> int:
                         help="don't hold the microphone at all")
     args = parser.parse_args(argv)
 
-    # Per-run overrides, applied before anything reads the config.
+    # Per-run overrides go into the environment, not onto the config module.
+    # Voice lives in the daemon, which is a *separate process* that imports its
+    # own config — so assigning attributes here would change nothing where it
+    # matters. The environment is inherited by the daemon we spawn, and config
+    # already reads exactly these names.
+    import os
+
     if args.stt:
+        os.environ["MANTRIN_STT"] = args.stt
         config.STT_PROVIDER = args.stt
     if args.tts:
+        os.environ["MANTRIN_TTS"] = args.tts
         config.TTS_PROVIDER = args.tts
     if args.timings:
+        os.environ["MANTRIN_TIMINGS"] = "1"
         config.SHOW_TIMINGS = True
-    if args.no_voice or args.dictate:
+    # Typing or dictating both mean "don't take my microphone" — with dictation
+    # especially, the user's own app wants it, and two listeners on one mic means
+    # both hear everything.
+    if args.no_voice or args.text or args.dictate:
+        os.environ["MANTRIN_VOICE"] = "0"
         config.VOICE_ENABLED = False
 
     if args.cmd == "setup":
@@ -244,9 +282,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if _daemon().is_running() or config.load_mcp_servers() or config.VOICE_ENABLED:
             if _ensure_daemon():
-                if args.dictate:
-                    print("(dictation mode talks to the daemon; the mic stays there)")
-                _client_conversation()
+                _client_conversation(speak=args.dictate)
                 return 0
         _run_conversation(dictation=args.dictate)
     except KeyboardInterrupt:

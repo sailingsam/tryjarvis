@@ -62,6 +62,9 @@ class OpenWakeWord:
         import openwakeword
         from openwakeword.model import Model
 
+        if audio.SAMPLE_RATE != 16_000:         # pragma: no cover
+            raise ValueError("wake word models are trained at 16kHz")
+
         available = {}
         for path in openwakeword.get_pretrained_model_paths():
             name = path.rsplit("/", 1)[-1].rsplit("_v", 1)[0]
@@ -115,8 +118,3 @@ def build(phrase: str) -> WakeGate:
             flush=True,
         )
         return Always()
-
-
-# Frames the gate needs before it can decide; openWakeWord wants 80ms windows and
-# 16kHz audio, which our 30ms frames satisfy in aggregate.
-assert audio.SAMPLE_RATE == 16_000, "wake word models are trained at 16kHz"

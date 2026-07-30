@@ -304,22 +304,24 @@ class Endpointer:
         return peak >= self._floor.gate
 
     def collect_one(self, frames: Iterable[bytes], *,
-                    already_speaking: bool = False) -> bytes | None:
+                    onset_timeout_ms: int | None = None) -> bytes | None:
         """Block until one utterance is complete, then return it.
 
         Taking a single utterance rather than a generator matters because the
         wake word has to read the same frames: one consumer at a time, handing
         the stream back and forth, instead of two iterators fighting over it.
 
-        `already_speaking` skips waiting for an onset — used right after the wake
-        word fires, since the user is mid-sentence and the command follows in the
-        same breath.
+        Returns `b""` if `onset_timeout_ms` passes with nobody speaking, and
+        `None` only when the microphone stream ends. The caller needs to tell
+        those apart: silence means go back to waiting, a dead stream means stop.
         """
         preroll: collections.deque[bytes] = collections.deque(maxlen=self._preroll_frames)
         collected: list[bytes] = []
-        speaking = already_speaking
+        speaking = False
         voiced_run = 0
         silent_run = 0
+        waited = 0
+        patience = None if onset_timeout_ms is None else onset_timeout_ms // FRAME_MS
 
         for frame in frames:
             voiced = self._voiced(frame)
@@ -331,6 +333,10 @@ class Endpointer:
                     speaking, silent_run = True, 0
                     collected = list(preroll)   # onset included, not clipped
                     preroll.clear()
+                    continue
+                waited += 1
+                if patience is not None and waited >= patience:
+                    return b""                  # nobody spoke
                 continue
 
             collected.append(frame)
@@ -349,7 +355,8 @@ class Endpointer:
             utterance = self.collect_one(frames)
             if utterance is None:
                 return
-            yield utterance
+            if utterance:
+                yield utterance
 
     def wait_for_speech(self, frames: Iterable[bytes], *, onset_frames: int | None = None) -> bool:
         """Block until someone starts talking. Used for barge-in, where we only
