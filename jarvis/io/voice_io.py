@@ -80,35 +80,54 @@ class VoiceIO:
 
     def listen(self) -> str | None:
         """Wait for something worth answering and return it as text."""
+        gated = getattr(self._gate, "is_gate", False)
         while True:
             self.turn = timings.Turn(enabled=self._show_timings)
-            armed = (getattr(self._gate, "is_gate", False)
-                     and time.monotonic() > self._listen_until)
+            armed = gated and time.monotonic() > self._listen_until
 
-            with self.turn.stage("vad"):
-                if armed:
-                    if not self._await_wake():
-                        return None
-                    # Wait for the command rather than assuming it is already
-                    # underway. People say the wake word both ways — "hey jarvis,
-                    # remind me…" in one breath, and "hey jarvis" … pause …
-                    # "remind me". Requiring an onset handles both, because the
-                    # onset is only 120ms and the pre-roll keeps the 300ms before
-                    # it, so nothing is clipped in the run-on case. Assuming
-                    # speech had begun broke the pause case outright: it collected
-                    # silence, transcribed nothing, and went back to sleep.
-                    utterance = self._endpointer.collect_one(
-                        self._frames, onset_timeout_ms=_COMMAND_GRACE_MS
-                    )
-                else:
-                    utterance = self._endpointer.collect_one(self._frames)
+            if armed:
+                if not self._await_wake():
+                    return None
+                # Wait for the command rather than assuming it is already
+                # underway. People say the wake word both ways — "hey jarvis,
+                # remind me…" in one breath, and "hey jarvis" … pause …
+                # "remind me". Requiring an onset handles both, because the
+                # onset is only 120ms and the pre-roll keeps the 300ms before
+                # it, so nothing is clipped in the run-on case. Assuming
+                # speech had begun broke the pause case outright: it collected
+                # silence, transcribed nothing, and went back to sleep.
+                utterance = self._endpointer.collect_one(
+                    self._frames, onset_timeout_ms=_COMMAND_GRACE_MS
+                )
+            elif gated:
+                # Inside the follow-up window. The window has to be enforced
+                # *inside* the wait: without a timeout here, one reply followed
+                # by silence would leave this blocked in collect_one with the
+                # gate down — and anything said near the machine hours later
+                # would be transcribed without the wake word ever being spoken.
+                # The window would never close, because expiry is only checked
+                # between waits.
+                remaining_ms = max(1, int((self._listen_until - time.monotonic()) * 1000))
+                utterance = self._endpointer.collect_one(
+                    self._frames, onset_timeout_ms=remaining_ms
+                )
+            else:
+                utterance = self._endpointer.collect_one(self._frames)
 
             if utterance is None:
                 return None
             if not utterance:
-                # Wake word, then nothing. Re-arm rather than answering silence.
+                # Silence: after the wake word, or for the rest of the follow-up
+                # window. Re-arm rather than answering nothing — the next pass
+                # through the loop finds the window expired and waits for the
+                # wake word again.
                 self._gate.reset()
                 continue
+            # What the recogniser is billed for starts at the onset; the wait
+            # before it is idle time, not latency. The endpointer's cost per
+            # turn is its trailing-silence window — fixed by design, but shown
+            # so the total reads honestly.
+            self.turn.mark("vad", self._endpointer.silence_ms)
 
             with self.turn.stage("stt"):
                 hints = self._hints() if self._hints else None
@@ -124,6 +143,11 @@ class VoiceIO:
     def _await_wake(self) -> bool:
         """Consume frames until the wake word fires. False if the mic died."""
         for frame in self._frames:
+            # Idle is when most of the day's audio goes past, so it is also when
+            # the noise floor must keep learning. Otherwise music that started
+            # while Mantrin was dormant would meet a stale, quiet-room gate the
+            # moment the wake word fires.
+            self._endpointer.observe(frame)
             if self._gate.open(frame):
                 self._gate.reset()
                 return True

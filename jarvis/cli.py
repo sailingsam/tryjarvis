@@ -252,10 +252,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.timings:
         os.environ["MANTRIN_TIMINGS"] = "1"
         config.SHOW_TIMINGS = True
-    # Typing or dictating both mean "don't take my microphone" — with dictation
-    # especially, the user's own app wants it, and two listeners on one mic means
-    # both hear everything.
-    if args.no_voice or args.text or args.dictate:
+    # Only the explicit flag turns the daemon's microphone off. --text and
+    # --dictate describe *this client's* input, but the environment set here is
+    # inherited by a daemon spawned below and outlives this run — typing one
+    # command must not leave a permanently deaf always-on process behind.
+    if args.no_voice:
         os.environ["MANTRIN_VOICE"] = "0"
         config.VOICE_ENABLED = False
 

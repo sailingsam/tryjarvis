@@ -116,27 +116,30 @@ def _voice_loop(turns: _Turns, memory) -> None:
     debugging even while the mic is live, and both reach the same brain.
     """
     from . import wake
-    from .io.voice_io import DictationIO, VoiceIO
+    from .io.voice_io import VoiceIO
     from .providers import voice_registry as registry
 
-    try:
-        stt = registry.build_stt(config.STT_PROVIDER, **config.STT_OPTIONS)
-        tts = registry.build_tts(config.TTS_PROVIDER, **config.TTS_OPTIONS)
-    except registry.Unavailable as e:
-        print(f"(voice off: {e})", flush=True)
-        return
-
+    # The cheap checks come first: building the local STT means loading a model,
+    # which can take twenty seconds — pointless if there is no microphone or the
+    # user's mode never uses one.
     spec = registry.spec_for("stt", config.STT_PROVIDER)
     if spec and spec.mode == "text":
         # The user dictates with their own app; there is no mic to hold, and no
         # terminal here to read from either.
-        print("(voice off: your dictation app needs a terminal — run `mantrin --text`)",
+        print("(voice off: your dictation app types into a terminal — run `mantrin --dictate`)",
               flush=True)
         return
 
     problem = audio_probe()
     if problem:
         print(f"(voice off: {problem})", flush=True)
+        return
+
+    try:
+        stt = registry.build_stt(config.STT_PROVIDER, **config.STT_OPTIONS)
+        tts = registry.build_tts(config.TTS_PROVIDER, **config.TTS_OPTIONS)
+    except registry.Unavailable as e:
+        print(f"(voice off: {e})", flush=True)
         return
 
     io = VoiceIO(
@@ -152,7 +155,12 @@ def _voice_loop(turns: _Turns, memory) -> None:
                 print("(microphone stream ended — voice off)", flush=True)
                 return
             try:
-                io.speak(turns.think(text, io=io))
+                # Timed here because only this loop sees the whole brain call —
+                # and the brain is usually the biggest share of a turn, which is
+                # exactly what --timings exists to show.
+                with io.turn.stage("brain"):
+                    reply = turns.think(text, io=io)
+                io.speak(reply)
             except Exception as e:                      # noqa: BLE001
                 io.speak(f"Something went wrong: {e}")
     finally:
@@ -259,7 +267,13 @@ def _serve_client(conn: socket.socket, turns: _Turns) -> None:
                 continue
             if msg.get("type") != "say":
                 continue
-            reply = turns.think(msg.get("text", ""), io=io)
+            try:
+                reply = turns.think(msg.get("text", ""), io=io)
+            except Exception as e:              # noqa: BLE001
+                # A failed turn — an API error, a tool blowing up — is the
+                # client's bad luck, not grounds to take down the always-on
+                # process everything else depends on.
+                reply = f"Something went wrong: {e}"
             f.write(json.dumps({"type": "reply", "text": reply}) + "\n")
             f.flush()
     except (BrokenPipeError, ConnectionResetError):

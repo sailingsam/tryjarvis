@@ -289,6 +289,16 @@ class Endpointer:
         """The energy threshold currently in force — moves with the room."""
         return self._floor.gate
 
+    @property
+    def silence_ms(self) -> int:
+        """The trailing quiet that ends a turn — the endpointer's fixed cost."""
+        return self._silence_frames * FRAME_MS
+
+    def observe(self, frame: bytes) -> None:
+        """Let the noise floor learn from a frame without collecting anything.
+        Used while idling on the wake word, which is where most audio goes by."""
+        self._voiced(frame)
+
     def _voiced(self, frame: bytes) -> bool:
         """Speech, by two independent opinions.
 
@@ -409,7 +419,9 @@ def decode_to_pcm(data: bytes) -> tuple[bytes, int]:
     Decoding in-process with miniaudio avoids making ffmpeg a hard requirement.
     """
     if data.startswith(b"RIFF"):
-        return strip_wav_header(data), 0        # caller keeps its known rate
+        # The container says its own rate; guessing instead plays chipmunk or
+        # slow-motion audio, depending on which side the guess missed.
+        return strip_wav_header(data), _wav_sample_rate(data)
     try:
         import miniaudio
     except ImportError as e:                   # pragma: no cover
@@ -421,6 +433,19 @@ def decode_to_pcm(data: bytes) -> tuple[bytes, int]:
         data, output_format=miniaudio.SampleFormat.SIGNED16, nchannels=1
     )
     return decoded.samples.tobytes(), decoded.sample_rate
+
+
+def _wav_sample_rate(data: bytes) -> int:
+    """The sample rate a WAV file declares for itself, or 0 if unreadable."""
+    pos = 12
+    while pos + 8 <= len(data):
+        cid = data[pos:pos + 4]
+        size = int.from_bytes(data[pos + 4:pos + 8], "little")
+        pos += 8
+        if cid == b"fmt " and pos + 8 <= len(data):
+            return int.from_bytes(data[pos + 4:pos + 8], "little")
+        pos += size + (size & 1)
+    return 0
 
 
 def strip_wav_header(chunk: bytes) -> bytes:
