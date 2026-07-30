@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 from datetime import datetime
 
@@ -43,6 +44,11 @@ HOW YOU ACT:
 - You know today's date; resolve "today"/"tomorrow"/"this weekend" against it.
 - You can use tools when they help — e.g. search the web for current or
   factual things you're unsure of. Prefer acting over guessing.
+- When you retry a tool call, reuse the exact argument values from the earlier
+  call (ids, recipients, numbers). Never substitute a placeholder or invented
+  value — if you no longer know the real value, look it up again first.
+- Your words may be spoken aloud. Keep replies plain prose — no markdown
+  formatting, no bullet lists, no headings. Short sentences beat long ones.
 
 Just talk to the user naturally. Do not output JSON or any control text —
 remembering things happens elsewhere, not in your reply."""
@@ -90,6 +96,24 @@ def _today() -> str:
 # Affirmatives accepted at a confirmation prompt (text + common Hinglish).
 _YES = {"yes", "y", "yeah", "yep", "ok", "okay", "sure", "confirm", "do it", "go ahead",
         "haan", "ha", "haa", "kar", "kar do", "krdo", "theek", "thik", "ok kar"}
+
+
+def _is_yes(answer: str) -> bool:
+    """Whether an answer means yes — robust to how speech arrives as text.
+
+    A transcriber writes "Yes." or "Yes, ma'am." — with punctuation and trailing
+    words — and an exact set lookup calls both a decline. That is how a user
+    said yes twice and watched the message not send, twice. So: strip
+    punctuation, then accept an exact phrase or a leading yes-word. Leading
+    only — "no, I said yes" must stay a no.
+    """
+    cleaned = re.sub(r"[^\w\s]", " ", answer.lower()).strip()
+    if not cleaned:
+        return False
+    if cleaned in _YES:
+        return True
+    words = cleaned.split()
+    return words[0] in _YES or " ".join(words[:2]) in _YES
 
 
 class Brain:
@@ -149,8 +173,7 @@ class Brain:
                 print(f"  [tool] {name}({tool_input})", file=sys.stderr)
             if tool.needs_confirm and io is not None:
                 io.speak(tool.confirmation(**tool_input))
-                answer = (io.listen() or "").strip().lower()
-                if answer not in _YES:
+                if not _is_yes(io.listen() or ""):
                     return "The user declined; the action was not performed."
             return tool.execute(**tool_input)
         return executor

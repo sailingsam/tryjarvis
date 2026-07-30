@@ -40,6 +40,7 @@ def speakable(text: str) -> str:
     t = re.sub(r"(\*\*|__)(.+?)\1", r"\2", t, flags=re.S)    # bold
     t = re.sub(r"(?<!\w)[*_]([^*_\n]+)[*_](?!\w)", r"\1", t)  # emphasis
     t = re.sub(r"^\s*(?:[-*_]\s*){3,}$", "", t, flags=re.M)  # horizontal rules
+    t = re.sub(r'[{}\[\]"]', " ", t)                         # syntax, not speech
     t = re.sub(r"[ \t]{2,}", " ", t)
     return t.strip()
 

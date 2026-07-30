@@ -73,7 +73,12 @@ export async function startMcpServer(
       query: z
         .string()
         .min(1)
-        .describe("Search term for contact name or phone number part of JID"),
+        .describe(
+          "Search term for contact name or phone number part of JID. Matching " +
+          "is substring-based. If a full name finds nothing (names are often " +
+          "spelled differently than they sound), retry with a short prefix — " +
+          "e.g. 'Aat' instead of 'Aatimik' — and offer the near matches to the user.",
+        ),
     },
     async ({ query }) => {
       mcpLogger.info(

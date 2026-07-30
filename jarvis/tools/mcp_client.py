@@ -142,7 +142,14 @@ class MCPTool(Tool):
             return f"(tool error) {e}"
 
     def confirmation(self, **kwargs) -> str:
-        return f"Run {self.name} with {kwargs}? (yes/no)"
+        # This line gets read ALOUD in voice mode. A repr of the arguments —
+        # braces, quotes, underscores — turns into "curly brace quote recipient
+        # quote", which tells the user nothing and takes ten seconds to say.
+        action = self._remote_name.replace("_", " ").replace("-", " ")
+        if not kwargs:
+            return f"Should I {action}? Yes or no?"
+        details = "; ".join(f"{k.replace('_', ' ')}: {v}" for k, v in kwargs.items())
+        return f"Should I {action}? {details}. Yes or no?"
 
 
 # Verbs that imply a tool changes the world → confirm before running.
