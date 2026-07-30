@@ -45,12 +45,13 @@ class MCPClient:
     """A persistent connection to one MCP server, usable from sync code."""
 
     def __init__(self, name: str, command: str, args: list[str], env: dict | None = None,
-                 cwd: str | None = None):
+                 cwd: str | None = None, errlog_path: str | None = None):
         self.name = name
         self._command = command
         self._args = args
         self._env = env
         self._cwd = cwd
+        self._errlog_path = errlog_path
         self._loop: asyncio.AbstractEventLoop | None = None
         self._thread: threading.Thread | None = None
         self._session = None
@@ -78,19 +79,30 @@ class MCPClient:
             self._ready.set()
 
     async def _serve(self) -> None:
+        import sys
+
         from mcp import ClientSession, StdioServerParameters
         from mcp.client.stdio import stdio_client
 
         params = StdioServerParameters(
             command=self._command, args=self._args, env=self._env, cwd=self._cwd
         )
-        async with stdio_client(params) as (read, write):
-            async with ClientSession(read, write) as session:
-                await session.initialize()
-                self.tools = (await session.list_tools()).tools
-                self._session = session
-                self._ready.set()
-                await self._stop.wait()   # keep the session open until close()
+        # A server's stderr can be *chatty* — Baileys' signal library narrates
+        # every session re-key. Interleaved with the daemon's own console it
+        # drowns the conversation, so it goes to a per-server file instead,
+        # where it is still there the day something actually breaks.
+        errlog = open(self._errlog_path, "a") if self._errlog_path else sys.stderr
+        try:
+            async with stdio_client(params, errlog=errlog) as (read, write):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+                    self.tools = (await session.list_tools()).tools
+                    self._session = session
+                    self._ready.set()
+                    await self._stop.wait()   # keep the session open until close()
+        finally:
+            if errlog is not sys.stderr:
+                errlog.close()
 
     def call(self, remote_name: str, arguments: dict, timeout: float = 120.0) -> str:
         fut = asyncio.run_coroutine_threadsafe(
@@ -152,8 +164,8 @@ def _infer_confirm(meta) -> bool:
 
 
 def connect(name: str, command: str, args: list[str], env: dict | None = None,
-            cwd: str | None = None):
+            cwd: str | None = None, errlog_path: str | None = None):
     """Start a server and return (client, [MCPTool, ...])."""
-    client = MCPClient(name, command, args, env, cwd)
+    client = MCPClient(name, command, args, env, cwd, errlog_path)
     client.start()
     return client, [MCPTool(client, m) for m in client.tools]

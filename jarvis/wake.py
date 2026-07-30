@@ -59,11 +59,20 @@ class OpenWakeWord:
     _WINDOW_SAMPLES = 1280
 
     def __init__(self, phrase: str = "hey_jarvis", threshold: float = 0.5):
+        import warnings
+
         import openwakeword
         from openwakeword.model import Model
 
         if audio.SAMPLE_RATE != 16_000:         # pragma: no cover
             raise ValueError("wake word models are trained at 16kHz")
+
+        # openwakeword asks onnxruntime for CUDA and falls back to CPU, which
+        # prints a scary-looking UserWarning on every start. The fallback is
+        # exactly what we want on a laptop, so the warning is noise.
+        warnings.filterwarnings(
+            "ignore", message=".*CUDAExecutionProvider.*", category=UserWarning
+        )
 
         available = {}
         for path in openwakeword.get_pretrained_model_paths():

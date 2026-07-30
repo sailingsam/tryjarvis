@@ -3,6 +3,19 @@ import { initializeDatabase } from "./database.ts";
 import { startWhatsAppConnection, type WhatsAppSocket } from "./whatsapp.ts";
 import { startMcpServer } from "./mcp.ts";
 
+// stdout IS the MCP wire — every byte on it must be a JSON-RPC frame. Our own
+// logging goes to pino files, but libsignal (inside Baileys) calls console.log
+// directly and dumps whole session objects on decryption events ("Closing open
+// session in favor of incoming prekey bundle", SessionEntry {...}). Each such
+// line lands in the MCP client's JSON parser and produces a traceback on the
+// daemon's console. The SDK's StdioServerTransport writes to process.stdout
+// itself, so rebinding console.* to stderr silences none of the protocol and
+// all of the noise.
+console.log = console.error;
+console.info = console.error;
+console.warn = console.error;
+console.debug = console.error;
+
 const dataDir = process.env.WHATSAPP_MCP_DATA_DIR || '.';
 const waLogger = pino(
   {
