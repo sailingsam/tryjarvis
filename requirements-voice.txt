@@ -1,5 +1,22 @@
-# Voice mode (--voice). Heavier, optional. Local-first: audio stays on device.
-faster-whisper>=1.0   # local speech-to-text
-sounddevice>=0.4      # microphone capture
+# Voice. Optional — text mode works without any of it.
+#
+# Deliberately no PortAudio binding (sounddevice): it needs a system library
+# installed before Python will even import, which is one more thing standing
+# between someone and their first conversation. Recording and playback go through
+# `arecord`/`aplay` or `pw-record`/`pw-play` instead, already present on any Linux
+# with ALSA or PipeWire.
+
+webrtcvad-wheels>=2.0     # endpointing — knowing when you stopped talking
 numpy>=1.24
-pyttsx3>=2.90         # local text-to-speech
+
+# Hearing. Pick one in `mantrin setup`; the hosted providers need only httpx,
+# which the base install already has.
+faster-whisper>=1.0       # local, free, private
+
+# Speaking
+piper-tts>=1.6            # local, free; bundles its own espeak-ng data
+miniaudio>=1.60           # decodes MP3 from hosted voices, so ffmpeg isn't needed
+
+# The wake word — local, so an always-on mic doesn't ship everything said near
+# the machine to a transcription service.
+openwakeword>=0.4

@@ -26,7 +26,14 @@ from .tools.base import Registry
 from .tools.web_search import WebSearch
 
 
-def _run_conversation(voice: bool) -> None:
+def _run_conversation(dictation: bool = False) -> None:
+    """A whole Mantrin in this process — used when there is no daemon to talk to.
+
+    Voice does not run here. The microphone belongs to the daemon, because a
+    second process would start its own copy of every MCP server: with WhatsApp
+    that means two Baileys clients sharing one set of credentials, which kills
+    the session for both.
+    """
     # The embedder is only needed here — it's what writes fact vectors and powers
     # query-driven recall. The read-only commands don't load it (faster startup).
     memory = MemoryStore(config.DB_FILE, embedder=LocalEmbedder())
@@ -41,12 +48,8 @@ def _run_conversation(voice: bool) -> None:
         tools=Registry(tools),
     )
 
-    if voice:
-        from .io.voice_io import VoiceIO
-        from .providers.stt import WhisperSTT
-        from .providers.tts import Pyttsx3TTS
-
-        io = VoiceIO(stt=WhisperSTT(), tts=Pyttsx3TTS())
+    if dictation:
+        io = _dictation_io()
     else:
         from .io.text_io import TextIO
 
@@ -70,8 +73,26 @@ def _run_conversation(voice: bool) -> None:
                 break
             io.speak(brain.think(user_text, io=io))
     finally:
+        close = getattr(io, "close", None)
+        if callable(close):
+            close()
         for client in mcp_clients:
             client.close()
+
+
+def _dictation_io():
+    """Text in, speech out — for someone using their own dictation app."""
+    from .io.voice_io import DictationIO
+    from .providers import voice_registry as registry
+
+    try:
+        tts = registry.build_tts(config.TTS_PROVIDER, **config.TTS_OPTIONS)
+    except registry.Unavailable as e:
+        print(f"({e} — replies will be printed only)")
+        from .providers.tts import Silent
+
+        tts = Silent()
+    return DictationIO(tts, show_timings=config.SHOW_TIMINGS)
 
 
 def _connect_mcp(tools: list) -> list:
@@ -169,15 +190,40 @@ def _client_conversation() -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="jarvis", description="Your personal Jarvis (v1).")
+    parser = argparse.ArgumentParser(
+        prog="mantrin", description="Mantrin — a chief of staff you talk to."
+    )
     sub = parser.add_subparsers(dest="cmd")
-    sub.add_parser("memory", help="show everything Jarvis remembers (and why)")
-    sub.add_parser("commitments", help="show open loops Jarvis is tracking")
+    sub.add_parser("setup", help="choose whose ears and voice to use, and save any keys")
+    sub.add_parser("memory", help="show everything Mantrin remembers (and why)")
+    sub.add_parser("commitments", help="show open loops Mantrin is tracking")
     sub.add_parser("brief", help="a short daily brief from memory + open loops")
-    sub.add_parser("daemon", help="run the persistent daemon (keeps WhatsApp etc. connected)")
-    parser.add_argument("--voice", action="store_true", help="use the microphone instead of text")
+    sub.add_parser("daemon", help="run the always-on daemon in the foreground")
+    parser.add_argument("--text", action="store_true",
+                        help="type instead of talking (the mic stays with the daemon)")
+    parser.add_argument("--dictate", action="store_true",
+                        help="type with your own dictation app; Mantrin still speaks back")
+    parser.add_argument("--stt", metavar="NAME", help="override the speech-to-text provider")
+    parser.add_argument("--tts", metavar="NAME", help="override the voice provider")
+    parser.add_argument("--timings", action="store_true",
+                        help="print where each turn's time went")
+    parser.add_argument("--no-voice", action="store_true",
+                        help="don't hold the microphone at all")
     args = parser.parse_args(argv)
 
+    # Per-run overrides, applied before anything reads the config.
+    if args.stt:
+        config.STT_PROVIDER = args.stt
+    if args.tts:
+        config.TTS_PROVIDER = args.tts
+    if args.timings:
+        config.SHOW_TIMINGS = True
+    if args.no_voice or args.dictate:
+        config.VOICE_ENABLED = False
+
+    if args.cmd == "setup":
+        from .setup_wizard import run as run_setup
+        return run_setup()
     if args.cmd == "memory":
         _show_memory()
         return 0
@@ -191,15 +237,18 @@ def main(argv: list[str] | None = None) -> int:
         from .daemon import run
         return run()
 
-    # When there are live connections worth keeping warm (MCP servers like
-    # WhatsApp), run through the daemon — auto-starting it if needed — so the
-    # connection persists and stays warm. Otherwise just run in-process.
+    # The daemon is where Mantrin actually lives: it holds the microphone and the
+    # MCP connections. Anything here is a thin client onto that one brain — which
+    # is also why voice never runs in this process. Two processes would each start
+    # their own WhatsApp client against the same credentials.
     try:
-        if not args.voice and (_daemon().is_running() or config.load_mcp_servers()):
+        if _daemon().is_running() or config.load_mcp_servers() or config.VOICE_ENABLED:
             if _ensure_daemon():
+                if args.dictate:
+                    print("(dictation mode talks to the daemon; the mic stays there)")
                 _client_conversation()
                 return 0
-        _run_conversation(voice=args.voice)
+        _run_conversation(dictation=args.dictate)
     except KeyboardInterrupt:
         print()
     return 0

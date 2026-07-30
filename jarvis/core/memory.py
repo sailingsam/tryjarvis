@@ -100,7 +100,12 @@ class MemoryStore:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._embedder = embedder
-        self._conn = sqlite3.connect(str(self.path))
+        # The daemon reaches memory from more than one thread — a voice turn and
+        # a socket turn arrive on different ones — but never at the same time:
+        # every turn is funnelled through one worker (see daemon._Turns). So the
+        # same-thread check is relaxed while the serialisation it protects is
+        # still guaranteed, one level up.
+        self._conn = sqlite3.connect(str(self.path), check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._conn.executescript(_SCHEMA)
         self._conn.commit()
