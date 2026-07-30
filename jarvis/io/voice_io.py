@@ -30,8 +30,12 @@ from .. import audio, timings, wake
 
 # How much louder than Mantrin's own voice an interruption has to be. Measured
 # against the room during playback rather than fixed, because a laptop speaker
-# and a pair of headphones differ enormously at the microphone.
-_BARGE_IN_MARGIN = 1.8
+# and a pair of headphones differ enormously at the microphone. This path is
+# best-effort by nature — without echo cancellation, a voice quieter than
+# Mantrin's own echo is physically indistinguishable from it. The wake word is
+# the reliable interrupt: it also runs during playback, and Mantrin's own
+# speech never contains it.
+_BARGE_IN_MARGIN = 1.6
 # ...and never lower than this much above the room's noise gate, so a reply that
 # is barely audible to the mic doesn't leave the bar at fan level.
 _BARGE_IN_GATE_BOOST = 1.5
@@ -193,8 +197,15 @@ class VoiceIO:
         """Listen while Mantrin talks; stop it the moment the user cuts in.
 
         There is no echo cancellation, so the microphone hears Mantrin too.
-        Three separate tests keep a real interruption apart from the room:
+        Two ways to cut in:
 
+        **The wake word, which always works.** It keeps running during
+        playback, and it cannot be fooled by echo — whatever Mantrin is
+        saying, it is not saying "hey jarvis". This is the path to rely on
+        when just talking doesn't register (physics: a voice quieter at the
+        mic than Mantrin's own echo cannot be told apart from it by energy).
+
+        **Just talking louder**, judged by three tests together:
         - it must be *speech* to the VAD — a fan, a chair, a keyboard never
           counts, however loud
         - it must be markedly louder than Mantrin's own voice as heard back
@@ -207,6 +218,7 @@ class VoiceIO:
         - it must be sustained, because a false stop costs the rest of the
           reply and a real interrupter keeps talking
         """
+        gated = getattr(self._gate, "is_gate", False)
         onset_needed = max(1, _BARGE_IN_ONSET_MS // audio.FRAME_MS)
         pending: collections.deque[int] = collections.deque(maxlen=onset_needed)
         own_voice = 0
@@ -216,6 +228,11 @@ class VoiceIO:
             if playback.stopped or not playback.playing:
                 return False
             peak = audio._peak(frame)
+
+            if gated and self._gate.open(frame):
+                playback.stop()
+                self._gate.reset()
+                return True
 
             warmed_up = len(pending) == pending.maxlen
             if warmed_up:

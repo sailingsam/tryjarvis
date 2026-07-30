@@ -15,12 +15,33 @@ Adding a provider means writing `stream()` and adding a line to
 
 from __future__ import annotations
 
+import re
 from typing import Iterator, Protocol
 
 from .. import audio
 
 _TIMEOUT = 60.0
 _MODEL_DIR_ENV = "MANTRIN_PIPER_DIR"
+
+
+def speakable(text: str) -> str:
+    """Markdown down to prose, because the voice reads what it is given.
+
+    The brain writes for a reader — **bold**, bullets, headers. Piper's
+    phonemizer dutifully pronounces the punctuation ("asterisk asterisk"), and
+    hosted voices are no better. The printed reply keeps its formatting; only
+    what reaches the synthesiser is flattened.
+    """
+    t = re.sub(r"```.+?```", " ", text, flags=re.S)         # code blocks: unreadable aloud
+    t = re.sub(r"`([^`]*)`", r"\1", t)                       # inline code
+    t = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", t)           # [label](url) -> label
+    t = re.sub(r"^#{1,6}\s*", "", t, flags=re.M)             # headers
+    t = re.sub(r"^\s*[-*•]\s+", "", t, flags=re.M)           # bullet markers
+    t = re.sub(r"(\*\*|__)(.+?)\1", r"\2", t, flags=re.S)    # bold
+    t = re.sub(r"(?<!\w)[*_]([^*_\n]+)[*_](?!\w)", r"\1", t)  # emphasis
+    t = re.sub(r"^\s*(?:[-*_]\s*){3,}$", "", t, flags=re.M)  # horizontal rules
+    t = re.sub(r"[ \t]{2,}", " ", t)
+    return t.strip()
 
 
 class TTSProvider(Protocol):
@@ -40,7 +61,8 @@ class StreamingTTS:
 
     def speak(self, text: str, *, on_first_audio=None) -> audio.Playback | None:
         return audio.play_stream(
-            self.stream(text), sample_rate=self.sample_rate, on_start=on_first_audio
+            self.stream(speakable(text)), sample_rate=self.sample_rate,
+            on_start=on_first_audio,
         )
 
 
@@ -146,7 +168,7 @@ class GrokTTS(_HostedTTS):
         import httpx
 
         response = httpx.post(self.url, headers=self._headers(),
-                              json=self._payload(text), timeout=_TIMEOUT)
+                              json=self._payload(speakable(text)), timeout=_TIMEOUT)
         response.raise_for_status()
         pcm, rate = audio.decode_to_pcm(response.content)
         # The rate is only known after decoding, and the player is started with a
