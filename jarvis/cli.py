@@ -215,25 +215,42 @@ def _client_voice():
 
 
 def main(argv: list[str] | None = None) -> int:
+    # The flags live on a parent parser attached to the main parser AND every
+    # subcommand, so `mantrin daemon --timings` and `mantrin --timings daemon`
+    # both work — nobody remembers which side of the subcommand a flag goes on.
+    # Defaults are SUPPRESS on the parent: a subparser runs after the main
+    # parser, and a plain default would overwrite a flag given before the
+    # subcommand with False again.
+    flags = argparse.ArgumentParser(add_help=False)
+    n = argparse.SUPPRESS
+    flags.add_argument("--text", action="store_true", default=n,
+                       help="type instead of talking, and leave the microphone alone")
+    flags.add_argument("--dictate", action="store_true", default=n,
+                       help="dictate with your own app; Mantrin speaks the reply back")
+    flags.add_argument("--stt", metavar="NAME", default=n,
+                       help="override the speech-to-text provider")
+    flags.add_argument("--tts", metavar="NAME", default=n,
+                       help="override the voice provider")
+    flags.add_argument("--timings", action="store_true", default=n,
+                       help="print where each turn's time went")
+    flags.add_argument("--no-voice", action="store_true", default=n,
+                       help="don't hold the microphone at all")
+
     parser = argparse.ArgumentParser(
-        prog="mantrin", description="Mantrin — a chief of staff you talk to."
+        prog="mantrin", description="Mantrin — a chief of staff you talk to.",
+        parents=[flags],
     )
     sub = parser.add_subparsers(dest="cmd")
-    sub.add_parser("setup", help="choose whose ears and voice to use, and save any keys")
-    sub.add_parser("memory", help="show everything Mantrin remembers (and why)")
-    sub.add_parser("commitments", help="show open loops Mantrin is tracking")
-    sub.add_parser("brief", help="a short daily brief from memory + open loops")
-    sub.add_parser("daemon", help="run the always-on daemon in the foreground")
-    parser.add_argument("--text", action="store_true",
-                        help="type instead of talking, and leave the microphone alone")
-    parser.add_argument("--dictate", action="store_true",
-                        help="dictate with your own app; Mantrin speaks the reply back")
-    parser.add_argument("--stt", metavar="NAME", help="override the speech-to-text provider")
-    parser.add_argument("--tts", metavar="NAME", help="override the voice provider")
-    parser.add_argument("--timings", action="store_true",
-                        help="print where each turn's time went")
-    parser.add_argument("--no-voice", action="store_true",
-                        help="don't hold the microphone at all")
+    sub.add_parser("setup", parents=[flags],
+                   help="choose whose ears and voice to use, and save any keys")
+    sub.add_parser("memory", parents=[flags],
+                   help="show everything Mantrin remembers (and why)")
+    sub.add_parser("commitments", parents=[flags],
+                   help="show open loops Mantrin is tracking")
+    sub.add_parser("brief", parents=[flags],
+                   help="a short daily brief from memory + open loops")
+    sub.add_parser("daemon", parents=[flags],
+                   help="run the always-on daemon in the foreground")
     args = parser.parse_args(argv)
 
     # Per-run overrides go into the environment, not onto the config module.
@@ -243,20 +260,23 @@ def main(argv: list[str] | None = None) -> int:
     # already reads exactly these names.
     import os
 
-    if args.stt:
-        os.environ["MANTRIN_STT"] = args.stt
-        config.STT_PROVIDER = args.stt
-    if args.tts:
-        os.environ["MANTRIN_TTS"] = args.tts
-        config.TTS_PROVIDER = args.tts
-    if args.timings:
+    stt = getattr(args, "stt", None)
+    tts = getattr(args, "tts", None)
+    dictate = getattr(args, "dictate", False)
+    if stt:
+        os.environ["MANTRIN_STT"] = stt
+        config.STT_PROVIDER = stt
+    if tts:
+        os.environ["MANTRIN_TTS"] = tts
+        config.TTS_PROVIDER = tts
+    if getattr(args, "timings", False):
         os.environ["MANTRIN_TIMINGS"] = "1"
         config.SHOW_TIMINGS = True
     # Only the explicit flag turns the daemon's microphone off. --text and
     # --dictate describe *this client's* input, but the environment set here is
     # inherited by a daemon spawned below and outlives this run — typing one
     # command must not leave a permanently deaf always-on process behind.
-    if args.no_voice:
+    if getattr(args, "no_voice", False):
         os.environ["MANTRIN_VOICE"] = "0"
         config.VOICE_ENABLED = False
 
@@ -283,9 +303,9 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if _daemon().is_running() or config.load_mcp_servers() or config.VOICE_ENABLED:
             if _ensure_daemon():
-                _client_conversation(speak=args.dictate)
+                _client_conversation(speak=dictate)
                 return 0
-        _run_conversation(dictation=args.dictate)
+        _run_conversation(dictation=dictate)
     except KeyboardInterrupt:
         print()
     return 0
