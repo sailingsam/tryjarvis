@@ -43,10 +43,16 @@ class LocalWhisper:
     is noticeably better if the machine can afford it.
     """
 
-    def __init__(self, model_size: str = "base", compute_type: str = "int8"):
+    def __init__(self, model_size: str = "base", compute_type: str = "int8",
+                 language: str | None = None):
         from faster_whisper import WhisperModel
 
         self._model = WhisperModel(model_size, compute_type=compute_type)
+        # None = auto-detect per utterance. Auto is right for mixed speech
+        # (Hinglish), but on short or unclear clips it can wander into the
+        # wrong script entirely — pin it via stt_options {"language": "en"}
+        # if that keeps happening.
+        self._language = language
 
     def transcribe(self, pcm: bytes, sample_rate: int, *,
                    hints: str | None = None) -> str | None:
@@ -56,7 +62,7 @@ class LocalWhisper:
             raise ValueError(f"LocalWhisper expects {audio.SAMPLE_RATE}Hz audio")
         samples = np.frombuffer(pcm, dtype=np.int16).astype(np.float32) / 32768.0
         segments, _ = self._model.transcribe(
-            samples, language=None, initial_prompt=hints or None
+            samples, language=self._language, initial_prompt=hints or None
         )
         text = " ".join(seg.text for seg in segments).strip()
         return text or None

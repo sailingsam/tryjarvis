@@ -22,6 +22,7 @@ forth; saying "hey jarvis" before every sentence is not.
 
 from __future__ import annotations
 
+import collections
 import time
 from typing import Callable
 
@@ -31,7 +32,10 @@ from .. import audio, timings, wake
 # against the room during playback rather than fixed, because a laptop speaker
 # and a pair of headphones differ enormously at the microphone.
 _BARGE_IN_MARGIN = 1.8
-_BARGE_IN_ONSET_MS = 240        # longer than a normal onset: costly to get wrong
+# ...and never lower than this much above the room's noise gate, so a reply that
+# is barely audible to the mic doesn't leave the bar at fan level.
+_BARGE_IN_GATE_BOOST = 1.5
+_BARGE_IN_ONSET_MS = 360        # sustained: a false stop costs the whole reply
 
 # How long to wait for the command after the wake word before deciding nobody is
 # talking to us. Long enough for "hey jarvis" … *thinks* … "remind me to…", short
@@ -188,13 +192,24 @@ class VoiceIO:
     def _watch_for_interruption(self, playback: audio.Playback) -> bool:
         """Listen while Mantrin talks; stop it the moment the user cuts in.
 
-        The threshold is calibrated against the first moments of playback, which
-        are Mantrin's own voice arriving back through the microphone. Anything
-        meaningfully louder than that is someone in the room, not the speaker.
+        There is no echo cancellation, so the microphone hears Mantrin too.
+        Three separate tests keep a real interruption apart from the room:
+
+        - it must be *speech* to the VAD — a fan, a chair, a keyboard never
+          counts, however loud
+        - it must be markedly louder than Mantrin's own voice as heard back
+          through the mic. That level is tracked across the whole reply — an
+          earlier version measured only the first half-second, which is
+          mostly player start-up latency, so the bar was set against silence
+          and Mantrin tripped over its own first loud word — but the tracking
+          is *lagged* by one onset window, so the user's opening words never
+          raise the bar against themselves
+        - it must be sustained, because a false stop costs the rest of the
+          reply and a real interrupter keeps talking
         """
         onset_needed = max(1, _BARGE_IN_ONSET_MS // audio.FRAME_MS)
+        pending: collections.deque[int] = collections.deque(maxlen=onset_needed)
         own_voice = 0
-        measured = 0
         run = 0
 
         for frame in self._frames:
@@ -202,15 +217,19 @@ class VoiceIO:
                 return False
             peak = audio._peak(frame)
 
-            if measured < onset_needed * 2:      # ~half a second of self-hearing
-                own_voice = max(own_voice, peak)
-                measured += 1
-                continue
+            warmed_up = len(pending) == pending.maxlen
+            if warmed_up:
+                own_voice = max(own_voice, pending[0])   # oldest — one lag behind
+            pending.append(peak)
+            if not warmed_up:
+                continue        # nothing believable to compare against yet
 
-            # The endpointer's gate, not a startup snapshot, so interrupting
-            # tracks the room as it changes.
-            threshold = max(self._endpointer.gate, int(own_voice * _BARGE_IN_MARGIN))
-            run = run + 1 if peak >= threshold else 0
+            threshold = max(
+                int(self._endpointer.gate * _BARGE_IN_GATE_BOOST),
+                int(own_voice * _BARGE_IN_MARGIN),
+            )
+            cut_in = peak >= threshold and self._endpointer.is_speech_frame(frame)
+            run = run + 1 if cut_in else 0
             if run >= onset_needed:
                 playback.stop()
                 return True

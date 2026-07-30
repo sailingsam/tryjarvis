@@ -55,7 +55,8 @@ def requirements(spec: Spec) -> tuple[list[str], list[str]]:
 def _local_whisper(**kw):
     from .stt import LocalWhisper
 
-    return LocalWhisper(model_size=kw.get("model") or "base")
+    return LocalWhisper(model_size=kw.get("model") or "base",
+                        language=kw.get("language"))
 
 
 def _openai_stt(**kw):

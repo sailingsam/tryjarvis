@@ -299,6 +299,12 @@ class Endpointer:
         Used while idling on the wake word, which is where most audio goes by."""
         self._voiced(frame)
 
+    def is_speech_frame(self, frame: bytes) -> bool:
+        """The VAD's opinion alone, with no floor learning. Used by barge-in,
+        where the room also contains Mantrin's own voice — teaching the floor
+        from that would poison it."""
+        return self._vad.is_speech(frame, SAMPLE_RATE)
+
     def _voiced(self, frame: bytes) -> bool:
         """Speech, by two independent opinions.
 
