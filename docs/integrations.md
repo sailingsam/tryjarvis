@@ -49,3 +49,17 @@ server fails to start and the daemon carries on without it.
 2. In Notion, share the pages/databases it should see with that integration
    (page ⋯ menu → Connections).
 3. `export NOTION_TOKEN=ntn_...`
+
+## GitHub
+
+"Any reviews waiting on me?", "what broke in CI overnight?"
+
+Runs GitHub's official server in Docker (needs Docker installed).
+
+1. Create a [fine-grained personal access token](https://github.com/settings/personal-access-tokens)
+   scoped to the repos you care about.
+2. `export GITHUB_PAT=github_pat_...`
+
+The full server exposes ~80 tools, which drowns the model's tool menu —
+`GITHUB_TOOLSETS` in the block trims it to the chief-of-staff set (repos,
+issues, PRs, notifications). Widen it if you need more.
