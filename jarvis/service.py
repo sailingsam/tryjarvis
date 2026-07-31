@@ -105,6 +105,9 @@ ExecStart={python} -m jarvis daemon
 WorkingDirectory={project}
 Restart=on-failure
 RestartSec=5
+# Without this, python block-buffers stdout when it isn't a terminal, and
+# `mantrin logs` shows conversation lines minutes late, in bursts.
+Environment=PYTHONUNBUFFERED=1
 Environment=PATH={os.environ.get('PATH', '/usr/bin:/bin')}
 
 [Install]

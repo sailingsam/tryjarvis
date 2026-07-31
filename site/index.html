@@ -99,8 +99,8 @@ a{color:inherit;text-decoration:none}
 .hero{position:relative;overflow:clip;padding-block:clamp(1.8rem,4vh,3rem) clamp(2rem,4vh,3rem)}
 .hero .aura{width:min(46rem,105%);aspect-ratio:1;right:-6%;top:-16%}
 @media(max-width:899px){.hero .aura{right:auto;left:50%;translate:-50% 0;top:34%;width:min(30rem,120%)}}
-.head{display:grid;gap:clamp(2rem,4vw,3.5rem);align-items:center}
-@media(min-width:900px){.head{grid-template-columns:.95fr 1.05fr}}
+.head{display:grid;gap:clamp(1.8rem,4vw,3rem);align-items:center}
+@media(min-width:1000px){.head{grid-template-columns:.92fr 1.08fr}}
 .kicker{display:flex;align-items:center;gap:.55rem;color:var(--muted);margin-bottom:1rem}
 h1{font-size:var(--t-h1);letter-spacing:-0.02em}
 h1 em{font-style:normal;color:var(--amber-lg)}
@@ -120,55 +120,91 @@ button:active,.cta:active{transform:translateY(1px)}
 .ctarow{margin-top:1.25rem;display:flex;flex-wrap:wrap;align-items:center;gap:.85rem 1.1rem}
 @media(max-width:430px){.cta{width:100%;justify-content:center}}
 
-/* ---------- hero constellation: speak to one, all of them know ---------- */
-.const{position:relative;width:min(23rem,100%);aspect-ratio:1;margin-inline:auto}
-.const .spoke{position:absolute;left:50%;top:50%;height:1px;width:36%;background:var(--line);
-  transform-origin:0 50%;transform:rotate(var(--a));transition:background .4s}
-.const .spoke.hot{background:oklch(0.74 0.155 72 / .55)}
-.const .spoke .sp{position:absolute;top:50%;left:0;width:.5rem;height:.5rem;border-radius:50%;
-  background:var(--amber);transform:translate(-50%,-50%);opacity:0;box-shadow:0 0 0 5px var(--amber-sf)}
-.const .spoke.inward .sp{animation:spIn .95s var(--ease)}
-.const .spoke.outward .sp{animation:spOut .95s var(--ease)}
-@keyframes spIn{0%{left:100%;opacity:0}14%{opacity:1}86%{opacity:1}100%{left:0;opacity:0}}
-@keyframes spOut{0%{left:0;opacity:0}14%{opacity:1}86%{opacity:1}100%{left:100%;opacity:0}}
-.core{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:4.2rem;height:4.2rem;
-  border-radius:50%;background:var(--bg);border:1px solid var(--line);display:grid;place-items:center;z-index:2;
-  box-shadow:0 0 0 8px oklch(0.74 0.155 72 / .05)}
-.core .heart{width:1.05rem;height:1.05rem;border-radius:50%;background:var(--amber);
+/* ---------- hero orchestration: one sentence out loud, and the day rearranges itself ---------- */
+.orch{position:relative;border:1px solid var(--hair);
+  border-radius:18px;background:var(--surface);overflow:clip;
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(16rem,1.05fr);
+  grid-template-areas:"you nodes" "core nodes";align-items:center;
+  column-gap:clamp(.9rem,2vw,1.7rem);row-gap:1.1rem;
+  padding:clamp(1.2rem,2.5vw,1.8rem)}
+.orch::before{content:"";position:absolute;left:28%;top:64%;width:24rem;aspect-ratio:1;translate:-50% -50%;
+  border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle, oklch(0.74 0.155 72 / .07), transparent 60%)}
+.ozone{transition:opacity .4s var(--ease)}
+.orch.swapping .ozone{opacity:0}
+
+.beams{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.beams .rail{fill:none;stroke:var(--line);stroke-width:1;opacity:.55}
+.beams .pulse{fill:none;stroke:var(--amber);stroke-width:2;stroke-linecap:round;opacity:0;
+  filter:drop-shadow(0 0 3px oklch(0.74 0.155 72 / .5))}
+.beams g.hot .pulse{opacity:1;stroke-dasharray:16 200;stroke-dashoffset:18;animation:beamRun 1s var(--ease) both}
+@keyframes beamRun{to{stroke-dashoffset:-102}}
+
+.you{grid-area:you;max-width:16rem;justify-self:center}
+.wv2{display:flex;align-items:center;gap:.22rem;height:1.6rem;margin-top:.65rem;opacity:.25;transition:opacity .35s}
+.orch.talking .wv2{opacity:1}
+.wv2 i{width:.18rem;border-radius:99px;background:var(--amber);height:var(--h,40%)}
+.orch.talking .wv2 i{animation:speak 1.05s ease-in-out infinite;animation-delay:var(--d,0ms)}
+.osaid{font-family:'Spectral',Georgia,serif;font-size:clamp(1.05rem,.98rem + 0.45vw,1.32rem);
+  color:var(--ink);line-height:1.45;margin-top:.55rem;min-height:5.6rem;max-width:22ch}
+.osaid .w{display:inline-block}
+.js .osaid .w{animation:wIn .5s var(--ease) both;animation-delay:var(--d,0ms)}
+@keyframes wIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+
+.ocore{grid-area:core;display:grid;justify-items:center;justify-self:center;width:13rem;z-index:2}
+.core2{position:relative;width:4.2rem;height:4.2rem;border-radius:50%;background:var(--bg);border:1px solid var(--line);
+  display:grid;place-items:center;box-shadow:0 0 0 8px oklch(0.74 0.155 72 / .05)}
+.core2 .heart{width:1.05rem;height:1.05rem;border-radius:50%;background:var(--amber);
   box-shadow:0 0 0 6px var(--amber-sf);animation:breathe 4.5s ease-in-out infinite}
 @keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(.8)}}
-.core .lbl{position:absolute;top:calc(100% + .5rem);white-space:nowrap;color:var(--ink);font-weight:600;font-size:.85rem}
 .ripple{position:absolute;left:50%;top:50%;width:4.2rem;height:4.2rem;border-radius:50%;
   border:1px solid var(--amber);transform:translate(-50%,-50%);opacity:0;pointer-events:none}
-.const.beat .ripple{animation:ripple 1.5s var(--ease)}
-.const.beat .ripple:nth-of-type(2){animation-delay:.22s}
-@keyframes ripple{from{transform:translate(-50%,-50%) scale(1);opacity:.65}
-  to{transform:translate(-50%,-50%) scale(3.6);opacity:0}}
-.dev{position:absolute;transform:translate(-50%,-50%);display:grid;justify-items:center;gap:.45rem;
-  width:4.6rem;z-index:2}
-.dev .pip{position:relative;width:.95rem;height:.95rem;border-radius:50%;background:var(--bg);
-  border:1px solid var(--line);transition:background .35s,border-color .35s,box-shadow .35s}
-.dev.talking .pip::after{content:"";position:absolute;inset:-.45rem;border-radius:50%;
-  border:1px solid var(--amber);opacity:0;animation:listen 1.8s ease-out infinite}
-@keyframes listen{0%{transform:scale(.7);opacity:.8}100%{transform:scale(2.1);opacity:0}}
-.dev span{color:var(--muted);font-size:.82rem;transition:color .35s}
-.dev.on .pip{background:var(--amber);border-color:var(--amber);box-shadow:0 0 0 5px var(--amber-sf)}
-.dev.on span{color:var(--ink)}
-.dev.talking .pip{background:var(--amber);border-color:var(--amber);box-shadow:0 0 0 7px var(--amber-sf)}
-.dev.talking span{color:var(--ink);font-weight:600}
-.dev .wv{display:flex;align-items:center;gap:.2rem;height:1.9rem;opacity:0;transform:scale(.8);
-  transition:opacity .35s var(--ease),transform .35s var(--ease)}
-.dev.talking .wv{opacity:1;transform:scale(1)}
-.dev .wv i{width:.17rem;border-radius:99px;background:var(--amber);height:var(--h,50%);
-  animation:speak 1.05s ease-in-out infinite;animation-delay:var(--d,0ms)}
-.caption{margin-top:.9rem;display:grid;gap:.45rem;justify-items:center;text-align:center;min-height:4.4rem}
-.caption .said2{font-family:'Spectral',Georgia,serif;font-size:clamp(1.02rem,.98rem + 0.35vw,1.2rem);
-  color:var(--ink);max-width:26ch;transition:opacity .4s}
-.caption .did2{display:inline-flex;align-items:flex-start;gap:.5rem;color:var(--body);font-size:.95rem;
-  max-width:30ch;transition:opacity .45s}
-.caption .did2 .tick{width:1.05rem;height:1.05rem;margin-top:.12rem}
-.caption .did2 .tick svg{width:.6rem;height:.6rem}
-.fading{opacity:0}
+.orch.beat .ripple{animation:ripple 1.4s var(--ease)}
+.orch.beat .ripple:nth-child(2){animation-delay:.2s}
+@keyframes ripple{from{transform:translate(-50%,-50%) scale(1);opacity:.6}
+  to{transform:translate(-50%,-50%) scale(3.4);opacity:0}}
+.clbl{margin-top:.55rem;color:var(--ink);font-weight:600;font-size:.85rem}
+.memlbl{margin-top:.95rem;color:var(--muted);opacity:0;transition:opacity .4s var(--ease)}
+.orch.recall .memlbl{opacity:1}
+.mems{list-style:none;display:grid;gap:.42rem;justify-items:center;margin-top:.5rem;min-height:4.4rem}
+.mems li{display:inline-flex;align-items:center;gap:.45rem;font-size:.82rem;color:var(--body);
+  background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:.3rem .75rem;
+  text-align:center;max-width:100%}
+.mems li::before{content:"";width:.3rem;height:.3rem;border-radius:50%;background:var(--amber);flex:none}
+.js .mems li{animation:memIn .5s var(--ease) both;animation-delay:var(--d,0ms)}
+@keyframes memIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+.onodes{grid-area:nodes;list-style:none;display:grid;gap:.55rem;width:100%;max-width:22rem;justify-self:end}
+.onode{display:grid;grid-template-columns:auto 1fr;gap:.75rem;align-items:center;
+  border:1px solid transparent;border-radius:12px;padding:.5rem .65rem;
+  transition:background .35s,border-color .35s}
+.onode.on{background:var(--bg);border-color:var(--line)}
+.npip{width:2.1rem;height:2.1rem;border-radius:50%;background:var(--bg);border:1px solid var(--line);
+  display:grid;place-items:center;color:var(--muted);
+  transition:background .35s,border-color .35s,color .35s,box-shadow .35s}
+.npip svg{width:1.05rem;height:1.05rem;fill:none;stroke:currentColor;stroke-width:1.5;
+  stroke-linecap:round;stroke-linejoin:round}
+.onode.on .npip{background:var(--amber);border-color:var(--amber);color:oklch(0.22 0.03 70);
+  box-shadow:0 0 0 4px var(--amber-sf)}
+.onode b{display:block;font-family:'Spline Sans Mono',ui-monospace,monospace;font-weight:400;
+  font-size:.72rem;letter-spacing:.01em;color:var(--muted);transition:color .35s}
+.onode.on b{color:var(--ink)}
+.nres{display:flex;align-items:flex-start;gap:.45rem;min-height:1.35rem;margin-top:.15rem;
+  font-size:.9rem;line-height:1.35;color:var(--ink)}
+.js .nres>*{animation:wIn .45s var(--ease) both}
+.nres .tick{flex:none;width:1rem;height:1rem;margin-top:.1rem}
+.nres .tick svg{width:.56rem;height:.56rem}
+.js .nres .tick svg{animation:draw .45s var(--ease) .2s backwards}
+
+@media(max-width:639px){
+  .orch{grid-template-columns:1fr;grid-template-areas:"you" "core" "nodes";justify-items:center;
+    gap:1.3rem;padding:1.2rem 1rem 1.4rem}
+  .orch::before{left:50%;top:30%}
+  .you{justify-self:center;max-width:24rem;text-align:center;display:grid;justify-items:center}
+  .osaid{min-height:0}
+  .onodes{justify-self:center;max-width:24rem}
+  .beams{display:none}
+}
 
 /* ---------- the live stage: say -> remember -> done ---------- */
 .stage{margin-top:clamp(1.4rem,3vh,2rem)}
@@ -413,37 +449,53 @@ footer{position:relative;border-top:1px solid var(--hair);overflow:hidden;
         </div>
       </div>
 
-      <div class="viz">
-    <!-- how it works: talk to one, all of them know -->
-    <div class="const" id="const" aria-hidden="true">
-      <span class="spoke" style="--a:-90deg"><i class="sp"></i></span><span class="spoke" style="--a:-18deg"><i class="sp"></i></span>
-      <span class="spoke" style="--a:54deg"><i class="sp"></i></span><span class="spoke" style="--a:126deg"><i class="sp"></i></span>
-      <span class="spoke" style="--a:198deg"><i class="sp"></i></span>
-      <span class="ripple"></span><span class="ripple"></span>
-      <span class="core"><span class="heart"></span><span class="lbl">Mantrin</span></span>
+    </div>
 
-      <span class="dev talking" style="left:50%;top:14%">
-        <span class="wv"><i style="--h:40%;--d:0ms"></i><i style="--h:88%;--d:80ms"></i><i style="--h:60%;--d:160ms"></i><i style="--h:100%;--d:240ms"></i><i style="--h:46%;--d:320ms"></i></span>
-        <span class="pip"></span><span>phone</span></span>
-      <span class="dev" style="left:84.2%;top:38.9%">
-        <span class="wv"><i style="--h:40%;--d:0ms"></i><i style="--h:88%;--d:80ms"></i><i style="--h:60%;--d:160ms"></i><i style="--h:100%;--d:240ms"></i><i style="--h:46%;--d:320ms"></i></span>
-        <span class="pip"></span><span>laptop</span></span>
-      <span class="dev" style="left:71.2%;top:79.1%">
-        <span class="wv"><i style="--h:40%;--d:0ms"></i><i style="--h:88%;--d:80ms"></i><i style="--h:60%;--d:160ms"></i><i style="--h:100%;--d:240ms"></i><i style="--h:46%;--d:320ms"></i></span>
-        <span class="pip"></span><span>watch</span></span>
-      <span class="dev" style="left:28.8%;top:79.1%">
-        <span class="wv"><i style="--h:40%;--d:0ms"></i><i style="--h:88%;--d:80ms"></i><i style="--h:60%;--d:160ms"></i><i style="--h:100%;--d:240ms"></i><i style="--h:46%;--d:320ms"></i></span>
-        <span class="pip"></span><span>car</span></span>
-      <span class="dev" style="left:15.8%;top:38.9%">
-        <span class="wv"><i style="--h:40%;--d:0ms"></i><i style="--h:88%;--d:80ms"></i><i style="--h:60%;--d:160ms"></i><i style="--h:100%;--d:240ms"></i><i style="--h:46%;--d:320ms"></i></span>
-        <span class="pip"></span><span>home</span></span>
-    </div>
-    <div class="caption">
-      <p class="said2" id="c-said">“Move my five thirty, and tell Tanay I'll call after.”</p>
-      <p class="did2" id="c-did"><span class="tick"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span><span id="c-didtxt">Calendar moved, Tanay told. Your laptop and watch already know.</span></p>
-    </div>
+    <!-- the product, working: you say one thing, Mantrin recalls what it knows, five services get handled -->
+    <figure class="orch" id="orch" role="img" aria-label="One sentence out loud — Mantrin recalls what it already knows about you, then your calendar, messages, home, music and weather are handled, each with a confirmation.">
+      <svg class="beams" id="beams" aria-hidden="true"></svg>
+
+      <div class="ozone you" aria-hidden="true">
+        <span class="ztitle mono">you, out loud</span>
+        <div class="wv2">
+          <i style="--h:36%;--d:0ms"></i><i style="--h:78%;--d:90ms"></i><i style="--h:52%;--d:180ms"></i>
+          <i style="--h:100%;--d:270ms"></i><i style="--h:64%;--d:360ms"></i><i style="--h:88%;--d:450ms"></i>
+          <i style="--h:42%;--d:540ms"></i>
+        </div>
+        <p class="osaid" id="o-said"></p>
       </div>
-    </div>
+
+      <div class="ozone ocore" aria-hidden="true">
+        <span class="core2"><span class="ripple"></span><span class="ripple"></span><span class="heart"></span></span>
+        <span class="clbl">Mantrin</span>
+        <span class="memlbl mono">already knows</span>
+        <ul class="mems" id="o-mems"></ul>
+      </div>
+
+      <ul class="ozone onodes" aria-hidden="true">
+        <li class="onode" data-k="calendar">
+          <span class="npip"><svg viewBox="0 0 20 20"><rect x="3" y="4.5" width="14" height="12" rx="2"/><path d="M3 8.5h14M7 2.5v3.5M13 2.5v3.5"/></svg></span>
+          <span class="ntxt"><b>calendar</b><span class="nres"></span></span>
+        </li>
+        <li class="onode" data-k="messages">
+          <span class="npip"><svg viewBox="0 0 20 20"><path d="M3.5 4.5h13a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1h-6l-3.5 3v-3h-3.5a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1z"/></svg></span>
+          <span class="ntxt"><b>messages</b><span class="nres"></span></span>
+        </li>
+        <li class="onode" data-k="home">
+          <span class="npip"><svg viewBox="0 0 20 20"><path d="M3.5 9.5 10 3.5l6.5 6M5.5 8.5v7h9v-7"/></svg></span>
+          <span class="ntxt"><b>home</b><span class="nres"></span></span>
+        </li>
+        <li class="onode" data-k="music">
+          <span class="npip"><svg viewBox="0 0 20 20"><path d="M8.5 15V5.5l7-1.8V13"/><circle cx="6.5" cy="15" r="2"/><circle cx="13.5" cy="13" r="2"/></svg></span>
+          <span class="ntxt"><b>music</b><span class="nres"></span></span>
+        </li>
+        <li class="onode" data-k="weather">
+          <span class="npip"><svg viewBox="0 0 20 20"><path d="M6 14.5h8a3 3 0 0 0 .4-5.97 4.2 4.2 0 0 0-8.2.9A2.8 2.8 0 0 0 6 14.5z"/></svg></span>
+          <span class="ntxt"><b>weather</b><span class="nres"></span></span>
+        </li>
+      </ul>
+    </figure>
+    <div class="ticks" id="o-ticks" role="tablist" aria-label="Examples"></div>
   </div>
 </header>
 
@@ -653,51 +705,125 @@ footer{position:relative;border-top:1px solid var(--hair);overflow:hidden;
     start();
   })();
 
-  /* ---- hero constellation: you speak to one device, all of them end up knowing ---- */
+  /* ---- hero orchestration: one sentence, a recall, then five services handled ---- */
   (function(){
-    var wrapEl=document.getElementById('const');
-    if(!wrapEl || reduce) return;
-    var devs=[].slice.call(wrapEl.querySelectorAll('.dev')),
-        cSaid=document.getElementById('c-said'), cDid=document.getElementById('c-did'),
-        cDidTxt=document.getElementById('c-didtxt'), timers=[];
-    var SC=[
-      { d:0, said:'“Move my five thirty, and tell Tanay I'+"’"+'ll call after.”',
-        did:'Calendar moved, Tanay told. Your laptop and watch already know.' },
-      { d:1, said:'“What did Mira say about the trip?”',
-        did:'Pulled it up. She lands Saturday, and you kept the evening free.' },
-      { d:3, said:'“Remind me to send the deck when I get in.”',
-        did:'Saved. You'+"’"+'ll hear it the moment you sit down at your desk.' }
-    ];
-    var n=0;
-    var spokes=[].slice.call(wrapEl.querySelectorAll('.spoke'));
-    function clearAll(){ timers.forEach(clearTimeout); timers=[];
-      devs.forEach(function(d){ d.classList.remove('on','talking') });
-      spokes.forEach(function(p){ p.classList.remove('inward','outward','hot') }); }
-    function at(ms,fn){ timers.push(setTimeout(fn,ms)) }
-    function play(i){
-      clearAll();
-      var s=SC[i];
-      cSaid.classList.add('fading'); cDid.classList.add('fading');
-      at(380,function(){ cSaid.textContent=s.said; cSaid.classList.remove('fading'); });
-      at(420,function(){ devs[s.d].classList.add('talking') });            // you speak here
-      at(1500,function(){ spokes[s.d].classList.add('inward','hot') });    // it travels to the brain
-      at(2450,function(){ wrapEl.classList.add('beat') });                 // the brain takes it in
-      at(2700,function(){                                                  // then out to everything else
-        var j=0;
-        devs.forEach(function(d,k){
-          if(k===s.d) return;
-          var delay=(j++)*150;
-          at(delay,function(){ spokes[k].classList.add('outward','hot') });
-          at(delay+700,function(){ d.classList.add('on') });
-        });
+    var fig=document.getElementById('orch'); if(!fig) return;
+    var saidEl=document.getElementById('o-said'), memsEl=document.getElementById('o-mems'),
+        svg=document.getElementById('beams'), core=fig.querySelector('.core2'),
+        ticks=document.getElementById('o-ticks'), nodes={}, gs={}, timers=[], i=0, cycle;
+    [].forEach.call(fig.querySelectorAll('.onode'),function(n){ nodes[n.getAttribute('data-k')]=n });
+
+    var NS='http://www.w3.org/2000/svg';
+    Object.keys(nodes).forEach(function(k){
+      var g=document.createElementNS(NS,'g'),
+          r=document.createElementNS(NS,'path'), p=document.createElementNS(NS,'path');
+      r.setAttribute('class','rail');
+      p.setAttribute('class','pulse'); p.setAttribute('pathLength','100');
+      g.appendChild(r); g.appendChild(p); svg.appendChild(g); gs[k]=g;
+    });
+
+    /* beams follow the real positions of the core and each node pip */
+    function draw(){
+      var fr=fig.getBoundingClientRect();
+      if(!fr.width) return;
+      svg.setAttribute('viewBox','0 0 '+Math.round(fr.width)+' '+Math.round(fr.height));
+      var cr=core.getBoundingClientRect(),
+          cx=cr.left-fr.left+cr.width/2, cy=cr.top-fr.top+cr.height/2, R=cr.width/2+7;
+      Object.keys(nodes).forEach(function(k){
+        var pr=nodes[k].querySelector('.npip').getBoundingClientRect(),
+            nx=pr.left-fr.left-5, ny=pr.top-fr.top+pr.height/2,
+            a=Math.atan2(ny-cy,nx-cx),
+            sx=cx+Math.cos(a)*R, sy=cy+Math.sin(a)*R,
+            dx=Math.max(28,(nx-sx)*.5),
+            d='M'+sx.toFixed(1)+' '+sy.toFixed(1)+
+              ' C'+(sx+dx).toFixed(1)+' '+sy.toFixed(1)+
+              ', '+(nx-dx).toFixed(1)+' '+ny.toFixed(1)+
+              ', '+nx.toFixed(1)+' '+ny.toFixed(1);
+        [].forEach.call(gs[k].children,function(p){ p.setAttribute('d',d) });
       });
-      at(4100,function(){ cDidTxt.textContent=s.did; cDid.classList.remove('fading'); });
-      at(4600,function(){ wrapEl.classList.remove('beat');
-        spokes.forEach(function(p){ p.classList.remove('inward','outward','hot') }); });
     }
-    play(0);
-    setInterval(function(){ n=(n+1)%SC.length; play(n) },8500);
-    document.addEventListener('visibilitychange',function(){ if(document.hidden) clearAll() });
+
+    var SC=[
+      { said:'“Heading home — twenty minutes out.”',
+        mems:['Long days end with quiet piano','Mira'+"’"+'s waiting on dinner news'],
+        acts:[['home','Lights on, warmed up.'],
+              ['music','Quiet piano from the doorway.'],
+              ['messages','Mira knows: twenty minutes.']] },
+      { said:'“Find an evening with Tanay next week.”',
+        mems:['You'+"’"+'re vegetarian','Tanay, co-founder. Tuesdays work.'],
+        acts:[['calendar','Tuesday 8pm, held for two.'],
+              ['messages','Tanay'+"’"+'s invited — he'+"’"+'s in.']] },
+      { said:'“What am I walking into tomorrow?”',
+        mems:['The deck was promised by Friday','You leave at 8:40'],
+        acts:[['calendar','Three things. First at nine.'],
+              ['weather','Rain by eight — leave earlier.'],
+              ['messages','Tanay'+"’"+'s reply, flagged for the car.']] }
+    ];
+    var TICK='<span class="tick"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"/></svg></span>';
+
+    function at(ms,fn){ timers.push(setTimeout(fn,ms)) }
+    function clearAll(){
+      timers.forEach(clearTimeout); timers=[];
+      fig.classList.remove('talking','beat','recall');
+      Object.keys(nodes).forEach(function(k){ nodes[k].classList.remove('on');
+        nodes[k].querySelector('.nres').innerHTML=''; gs[k].classList.remove('hot') });
+      memsEl.innerHTML='';
+    }
+    function mark(n){ [].forEach.call(ticks.children,function(b,k){
+      b.setAttribute('aria-current', k===n?'true':'false') }) }
+    function fire(k,txt,delay){
+      at(delay,function(){ gs[k].classList.add('hot') });
+      at(delay+650,function(){ nodes[k].classList.add('on');
+        nodes[k].querySelector('.nres').innerHTML=TICK+'<span>'+txt+'</span>' });
+    }
+    /* the whole scene at rest, for reduced motion */
+    function paint(n){
+      i=n; clearAll(); var s=SC[n];
+      saidEl.textContent=s.said;
+      fig.classList.add('recall');
+      memsEl.innerHTML=s.mems.map(function(m){ return '<li>'+m+'</li>' }).join('');
+      s.acts.forEach(function(a){ nodes[a[0]].classList.add('on');
+        nodes[a[0]].querySelector('.nres').innerHTML=TICK+'<span>'+a[1]+'</span>' });
+      mark(n);
+    }
+    function play(n){
+      i=n; if(reduce){ paint(n); return }
+      clearAll(); var s=SC[n];
+      fig.classList.add('swapping');
+      at(380,function(){
+        fig.classList.remove('swapping');
+        saidEl.innerHTML=s.said.split(' ').map(function(w,k){
+          return '<span class="w" style="--d:'+(200+k*80)+'ms">'+w+'</span>' }).join(' ');
+        fig.classList.add('talking');                                     // you speak
+        var tSay=480+s.said.split(' ').length*80+380;
+        at(tSay,function(){ fig.classList.remove('talking');              // it lands in the brain
+          fig.classList.add('beat','recall');
+          memsEl.innerHTML=s.mems.map(function(m,k){
+            return '<li style="--d:'+(k*170)+'ms">'+m+'</li>' }).join('');
+        });
+        var tAct=tSay+1050;                                               // then out into the world
+        s.acts.forEach(function(a,j){ fire(a[0],a[1],tAct+j*300) });
+        at(tAct+1700,function(){ fig.classList.remove('beat') });
+      });
+      mark(n);
+    }
+    function restart(){ clearInterval(cycle);
+      if(!reduce) cycle=setInterval(function(){ play((i+1)%SC.length) },9500) }
+
+    SC.forEach(function(s,n){
+      var b=document.createElement('button');
+      b.setAttribute('role','tab'); b.setAttribute('aria-label','Example '+(n+1));
+      b.onclick=function(){ play(n); restart() };
+      ticks.appendChild(b);
+    });
+
+    draw();
+    if(document.fonts&&document.fonts.ready) document.fonts.ready.then(draw);
+    addEventListener('resize',function(){ clearTimeout(fig._r); fig._r=setTimeout(draw,180) });
+    if(reduce){ paint(0) } else { play(0); restart() }
+    document.addEventListener('visibilitychange',function(){
+      if(document.hidden){ clearInterval(cycle); clearAll() }
+      else if(!reduce){ play(i); restart() } });
   })();
 
   /* ---- the live stage ---- */
