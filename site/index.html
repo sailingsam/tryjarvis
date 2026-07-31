@@ -301,7 +301,7 @@ h2{font-size:var(--t-h2);max-width:22ch}
 .crail{position:relative;width:100%;display:flex;justify-content:space-between;padding:0 .3rem}
 .crail::before{content:"";position:absolute;left:1.2rem;right:1.2rem;top:.4rem;height:1px;background:var(--line)}
 .crun{position:absolute;top:.4rem;width:.5rem;height:.5rem;border-radius:50%;background:var(--amber);
-  translate:-50% -50%;box-shadow:0 0 0 4px var(--amber-sf);transition:left .7s var(--ease)}
+  translate:-50% -50%;box-shadow:0 0 0 4px var(--amber-sf);transition:left .5s var(--ease)}
 .cstop{all:unset;cursor:pointer;display:grid;justify-items:center;gap:.45rem;z-index:1}
 .cstop i{width:.6rem;height:.6rem;border-radius:50%;background:var(--bg);border:1px solid var(--line);transition:.3s}
 .cstop[aria-current="true"] i{background:var(--amber);border-color:var(--amber);box-shadow:0 0 0 4px var(--amber-sf)}
@@ -333,7 +333,8 @@ h2{font-size:var(--t-h2);max-width:22ch}
   border-radius:50%;pointer-events:none;
   background:radial-gradient(circle, oklch(0.74 0.155 72 / .13), transparent 62%)}
 .voice .wrap{display:grid;gap:clamp(2rem,5vw,3.5rem)}
-@media(min-width:900px){.voice .wrap{grid-template-columns:1fr 1fr;align-items:center}}
+@media(min-width:900px){.voice .wrap{grid-template-columns:1fr 1fr;align-items:center}
+  .voice .heard{order:-1}}
 .voice h2{color:var(--on-deep-hi)}
 .voice p{font-size:var(--t-lead);margin-top:.9rem;color:var(--on-deep)}
 .voice p b{color:var(--on-deep-hi);font-weight:600}
@@ -422,7 +423,9 @@ h2{font-size:var(--t-h2);max-width:22ch}
 @media(max-width:899px){.rack{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:479px){.rack{grid-template-columns:1fr}}
 .prow{display:grid;gap:.6rem;justify-items:center;background:var(--bg);border:1px solid var(--hair);
-  border-radius:14px;padding:1rem .8rem 1.1rem;transition:border-color .35s,box-shadow .35s,transform .45s var(--ease)}
+  border-radius:14px;padding:1rem .8rem 1.1rem;cursor:pointer;user-select:none;
+  transition:border-color .35s,box-shadow .35s,transform .45s var(--ease)}
+.prow:active{transform:translateY(-1px) scale(.985)}
 .prow.hot{border-color:var(--amber);box-shadow:0 14px 34px -20px oklch(0.60 0.16 64 / .7);
   transform:translateY(-3px)}
 .plabel{color:var(--muted);transition:color .35s}
@@ -1072,9 +1075,9 @@ $ mantrin
         i=0, timer, seen=0;
     var ST=[
       { q:'“Book dinner with Tom next Tuesday, 8pm — somewhere vegetarian.”',
-        n:4, chips:[], cap:'you said 11 words' },
+        n:4, chips:[], cap:'you said 9 words' },
       { q:'“Dinner with Tom next week.”',
-        n:15, chips:['You'+"’"+'re vegetarian','Tuesdays suit Tom'], cap:'you said 6 words' },
+        n:15, chips:['You'+"’"+'re vegetarian','Tuesdays suit Tom'], cap:'you said 5 words' },
       { q:'“The usual with Tom.”',
         n:40, chips:['“the usual” = Terra, Tuesday 8pm'], cap:'4 words. it knows the rest.' }
     ];
@@ -1088,7 +1091,7 @@ $ mantrin
     function dots(n,animate){
       var html='';
       for(var k=0;k<n;k++){
-        var d=(animate&&k>=seen)?(k-seen)*42:0;
+        var d=(animate&&k>=seen)?(k-seen)*24:0;
         html+='<i style="left:'+P[k][0].toFixed(1)+'%;top:'+P[k][1].toFixed(1)+'%;--d:'+d+'ms"></i>';
       }
       field.innerHTML=html; seen=Math.max(seen,n);
@@ -1100,9 +1103,9 @@ $ mantrin
       var s=ST[n], anim=animate&&!reduce;
       if(anim){
         said.innerHTML=s.q.split(' ').map(function(w,k){
-          return '<span class="w" style="--d:'+(k*70)+'ms">'+w+'</span>' }).join(' ');
+          return '<span class="w" style="--d:'+(k*48)+'ms">'+w+'</span>' }).join(' ');
         chips.innerHTML=s.chips.map(function(c,k){
-          return '<span style="--d:'+(350+k*170)+'ms">'+c+'</span>' }).join('');
+          return '<span style="--d:'+(240+k*120)+'ms">'+c+'</span>' }).join('');
       } else {
         said.textContent=s.q;
         chips.innerHTML=s.chips.map(function(c){ return '<span>'+c+'</span>' }).join('');
@@ -1113,7 +1116,7 @@ $ mantrin
     stops.forEach(function(b,k){ b.onclick=function(){ go(k,true); restart() } });
     function restart(){ clearInterval(timer);
       if(!reduce) timer=setInterval(function(){
-        var nx=(i+1)%ST.length; if(nx===0){ seen=0 } go(nx,true) },6200) }
+        var nx=(i+1)%ST.length; if(nx===0){ seen=0 } go(nx,true) },4600) }
     /* lock every slot at its tallest state so the box never breathes */
     function lockHeights(){
       said.style.minHeight=''; chips.style.minHeight='';
@@ -1130,6 +1133,7 @@ $ mantrin
     else {
       go(0,false);
       lockHeights();
+      if(document.fonts&&document.fonts.ready) document.fonts.ready.then(lockHeights);
       if('IntersectionObserver' in window){
         new IntersectionObserver(function(items){ items.forEach(function(it){
           if(it.isIntersecting){ restart() } else { clearInterval(timer) } })
@@ -1154,6 +1158,10 @@ $ mantrin
     function lock(){ spoken.style.minHeight=spoken.offsetHeight+'px';
       act.style.minHeight=act.offsetHeight+'px' }
     lock();
+    if(document.fonts&&document.fonts.ready) document.fonts.ready.then(function(){
+      if(!playing){ spoken.textContent=full; act.innerHTML=actHTML;
+        spoken.style.minHeight=''; act.style.minHeight=''; lock() }
+    });
     addEventListener('resize',function(){ clearTimeout(act._r); act._r=setTimeout(function(){
       if(playing) return;
       spoken.style.minHeight=''; act.style.minHeight='';
@@ -1238,11 +1246,11 @@ $ mantrin
       });
     }
     lockPorts();
+    if(document.fonts&&document.fonts.ready) document.fonts.ready.then(lockPorts);
     addEventListener('resize',function(){ clearTimeout(rack._r); rack._r=setTimeout(lockPorts,200) });
     if(reduce) return;                     // the local-first defaults stand still
-    function swap(){
-      /* a random socket each time — never the same one twice in a row */
-      var r; do { r=rows[(Math.random()*rows.length)|0] } while(r===lastRow);
+    function swapRow(r){
+      if(r.classList.contains('hot')) return;      // mid-swap, let it land
       lastRow=r;
       var k=r.getAttribute('data-k'), list=CH[k], chip=r.querySelector('.pchip'),
           cur=chip.textContent,
@@ -1259,8 +1267,16 @@ $ mantrin
       },360);
       setTimeout(function(){ r.classList.remove('hot') },1400);
     }
+    function swap(){
+      /* a random socket each time — never the same one twice in a row */
+      var r; do { r=rows[(Math.random()*rows.length)|0] } while(r===lastRow);
+      swapRow(r);
+    }
+    rows.forEach(function(r){ r.addEventListener('click',function(){
+      swapRow(r); restart();                        // your click, your swap — timer steps aside
+    }) });
     function tick(){ swap(); timer=setTimeout(tick, 1500+Math.random()*1300) }
-    function restart(){ clearTimeout(timer); timer=setTimeout(tick, 600) }
+    function restart(){ clearTimeout(timer); timer=setTimeout(tick, 2200) }
     if('IntersectionObserver' in window){
       new IntersectionObserver(function(items){ items.forEach(function(it){
         if(it.isIntersecting){ restart() } else { clearTimeout(timer) } })
