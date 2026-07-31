@@ -380,3 +380,47 @@ export async function sendWhatsAppMessage(
     }
   }
 }
+
+/**
+ * Edit a message we sent earlier (WhatsApp allows this for ~15 minutes).
+ * The key is reconstructed from the chat JID and the id that send_message
+ * reported — fromMe is always true because you can only edit your own.
+ */
+export async function editWhatsAppMessage(
+  logger: P.Logger,
+  recipientJid: string,
+  messageId: string,
+  newText: string
+): Promise<proto.WebMessageInfo | void> {
+  if (!recipientJid || !messageId || !newText) {
+    logger.error("Cannot edit message: missing recipient, message id or text.");
+    return;
+  }
+  if (!(await ensureConnected(logger))) {
+    logger.error("Cannot edit message: not connected after reconnect attempt.");
+    return;
+  }
+  const targetJid = isJidGroup(recipientJid)
+    ? recipientJid
+    : jidNormalizedUser(recipientJid);
+
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      logger.info(`Editing message ${messageId} in ${targetJid}`);
+      const result = await conn.sock!.sendMessage(targetJid, {
+        text: newText,
+        edit: { remoteJid: targetJid, fromMe: true, id: messageId },
+      });
+      logger.info({ msgId: messageId }, "Message edited successfully");
+      return result;
+    } catch (error) {
+      logger.error({ err: error, recipientJid: targetJid, attempt }, "Failed to edit message");
+      if (isConnectionClosed(error) && attempt === 1) {
+        conn.state = "close";
+        if (!(await ensureConnected(logger))) return;
+        continue;
+      }
+      return;
+    }
+  }
+}

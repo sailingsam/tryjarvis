@@ -64,11 +64,31 @@ class LocalWhisper:
         if sample_rate != audio.SAMPLE_RATE:        # pragma: no cover
             raise ValueError(f"LocalWhisper expects {audio.SAMPLE_RATE}Hz audio")
         samples = np.frombuffer(pcm, dtype=np.int16).astype(np.float32) / 32768.0
+        # vad_filter prunes non-speech before decoding — our endpointer is
+        # deliberately loose (better to over-capture than clip a word), and
+        # whisper *hallucinates* on audio that holds no speech.
         segments, _ = self._model.transcribe(
-            samples, language=self._language, initial_prompt=hints or None
+            samples, language=self._language, initial_prompt=hints or None,
+            vad_filter=True, condition_on_previous_text=False,
         )
         text = " ".join(seg.text for seg in segments).strip()
-        return text or None
+        if not text:
+            return None
+        # Whisper's signature failure on unclear audio is to echo its own
+        # initial_prompt back — a live session transcribed "Names that may come
+        # up." out of a mumble, which is *our hint text*, not the user. Anything
+        # that reads as a piece of the prompt was never said.
+        if hints and _echoes_prompt(text, hints):
+            return None
+        return text
+
+
+def _echoes_prompt(text: str, prompt: str) -> bool:
+    def _norm(s: str) -> str:
+        return " ".join("".join(c for c in s.lower() if c.isalnum() or c.isspace()).split())
+
+    heard, said = _norm(text), _norm(prompt)
+    return bool(heard) and heard in said
 
 
 class _HostedSTT:

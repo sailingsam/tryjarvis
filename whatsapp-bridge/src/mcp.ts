@@ -14,7 +14,7 @@ import {
   searchMessages,
 } from "./database.ts";
 
-import { sendWhatsAppMessage, type WhatsAppSocket } from "./whatsapp.ts";
+import { editWhatsAppMessage, sendWhatsAppMessage, type WhatsAppSocket } from "./whatsapp.ts";
 import { type P } from "pino";
 
 function formatDbMessageForJson(msg: DbMessage) {
@@ -458,6 +458,64 @@ export async function startMcpServer(
           isError: true,
           content: [
             { type: "text", text: `Error sending message: ${error.message}` },
+          ],
+        };
+      }
+    },
+  );
+
+  server.tool(
+    "edit_message",
+    {
+      recipient: z
+        .string()
+        .describe("Chat JID the message was sent to (same value used for send_message)"),
+      message_id: z
+        .string()
+        .describe(
+          "ID of the previously sent message to edit — send_message returns it " +
+          "as 'ID: ...'. Only your own messages can be edited, and only within " +
+          "about 15 minutes of sending. Prefer editing over sending a correction " +
+          "when the user asks to fix a message that just went out.",
+        ),
+      new_message: z.string().min(1).describe("The corrected text to replace it with"),
+    },
+    async ({ recipient, message_id, new_message }) => {
+      mcpLogger.info(`[MCP Tool] Executing edit_message ${message_id} in ${recipient}`);
+      try {
+        const result = await editWhatsAppMessage(
+          waLogger,
+          recipient,
+          message_id,
+          new_message,
+        );
+        if (result) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Message ${message_id} edited successfully — it now reads: "${new_message}"`,
+              },
+            ],
+          };
+        }
+        return {
+          isError: true,
+          content: [
+            {
+              type: "text",
+              text: "Edit failed — the message may be older than WhatsApp's edit window (~15 min), or the connection dropped.",
+            },
+          ],
+        };
+      } catch (error: any) {
+        mcpLogger.error(
+          `[MCP Tool Error] edit_message failed: ${error.message}`,
+        );
+        return {
+          isError: true,
+          content: [
+            { type: "text", text: `Error editing message: ${error.message}` },
           ],
         };
       }
