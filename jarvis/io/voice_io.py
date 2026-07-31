@@ -23,6 +23,7 @@ forth; saying "hey jarvis" before every sentence is not.
 from __future__ import annotations
 
 import collections
+import re
 import time
 from typing import Callable
 
@@ -45,6 +46,44 @@ _BARGE_IN_ONSET_MS = 360        # sustained: a false stop costs the whole reply
 # talking to us. Long enough for "hey jarvis" … *thinks* … "remind me to…", short
 # enough that a stray detection does not leave the mic open.
 _COMMAND_GRACE_MS = 4_000
+
+# How long a *thinking pause* may last once the words so far sound unfinished.
+# "…his name was ummm" followed by two seconds of silence is someone reaching
+# for a name, not someone done talking — silence alone cannot tell those apart,
+# but the words can. Generous on purpose: this timer only runs when the
+# transcript already says the thought is dangling.
+_THINKING_MS = 5_000
+_MAX_CONTINUATIONS = 3
+
+# Words that essentially never end a finished English/Hinglish thought.
+# Deliberately conservative: a false "unfinished" costs a five-second wait
+# before Mantrin replies, so everyday sentence-enders ("you", "hai", "was")
+# stay out even though they occasionally dangle.
+_DANGLING_WORDS = {
+    # fillers
+    "um", "umm", "ums", "uhm", "uh", "uhh", "hmm", "hm", "er", "err", "ah", "aah",
+    "mmm", "mm",
+    # conjunctions / connectors that promise more
+    "and", "or", "but", "so", "because", "than", "like",
+    "aur", "ya", "ki", "kyunki", "matlab", "yaani",
+    # articles / possessives / prepositions
+    "the", "a", "an", "my", "his", "her", "their", "our", "your",
+    "to", "of", "in", "on", "at", "with", "for", "from",
+    "ka", "ke", "ko", "se", "wala", "wale", "woh", "wo",
+}
+
+
+def _sounds_unfinished(text: str) -> bool:
+    """Does this transcript read like a thought still in flight?"""
+    t = text.strip()
+    if not t:
+        return False
+    if t.endswith(("?", "!")):
+        return False                    # a question or exclamation is a whole turn
+    if t.endswith(("...", "…", ",", "-", "—", ":")):
+        return True
+    words = re.sub(r"[^\w\s']", " ", t.lower()).split()
+    return bool(words) and words[-1] in _DANGLING_WORDS
 
 
 class VoiceIO:
@@ -137,21 +176,47 @@ class VoiceIO:
             # turn is its trailing-silence window — fixed by design, but shown
             # so the total reads honestly.
             self.turn.mark("vad", self._endpointer.silence_ms)
-            # Running total of audio actually handed to the recogniser — with
-            # hosted ears this is exactly what gets billed, and being able to
-            # see it is how the user trusts that the gate holds.
-            self.transcribed_seconds += len(utterance) / (audio.SAMPLE_RATE * audio.SAMPLE_WIDTH)
 
-            with self.turn.stage("stt"):
-                hints = self._hints() if self._hints else None
-                text = self._stt.transcribe(utterance, audio.SAMPLE_RATE, hints=hints)
-
+            text = self._transcribe(utterance)
             if text:
+                text = self._hear_the_rest(utterance, text)
                 print(f"you  > {text}")
                 return text
             # Nothing intelligible — go back to waiting rather than bothering the
             # brain with an empty turn.
             self._gate.reset()
+
+    def _transcribe(self, pcm: bytes) -> str | None:
+        # Running total of audio actually handed to the recogniser — with
+        # hosted ears this is exactly what gets billed, and being able to see
+        # it is how the user trusts that the gate holds.
+        self.transcribed_seconds += len(pcm) / (audio.SAMPLE_RATE * audio.SAMPLE_WIDTH)
+        with self.turn.stage("stt"):
+            hints = self._hints() if self._hints else None
+            return self._stt.transcribe(pcm, audio.SAMPLE_RATE, hints=hints)
+
+    def _hear_the_rest(self, pcm: bytes, text: str) -> str:
+        """Wait out thinking pauses instead of cutting the speaker off.
+
+        Silence ends a turn, but "…his name was ummm" followed by silence is
+        someone *reaching for a word*, not someone finished. Silence cannot
+        tell those apart; the words can. While the transcript ends mid-thought,
+        keep the mic open for a generous pause, splice the continuation onto
+        the same clip, and transcribe the whole utterance again so the
+        recogniser hears one sentence rather than two fragments — the join is
+        exactly where the name lands.
+        """
+        for _ in range(_MAX_CONTINUATIONS):
+            if not _sounds_unfinished(text):
+                break
+            more = self._endpointer.collect_one(
+                self._frames, onset_timeout_ms=_THINKING_MS
+            )
+            if not more:
+                break                   # they really were done (or the mic died)
+            pcm += more
+            text = self._transcribe(pcm) or text
+        return text
 
     def _await_wake(self) -> bool:
         """Consume frames until the wake word fires. False if the mic died."""

@@ -265,7 +265,11 @@ class Endpointer:
         self,
         *,
         aggressiveness: int = 3,        # webrtcvad 0-3; 3 filters most non-speech
-        silence_ms: int = 700,          # trailing quiet that means "I'm done"
+        silence_ms: int = 850,          # trailing quiet that means "I'm done" —
+                                        # under natural mid-sentence breaths;
+                                        # thinking pauses are handled by words
+                                        # (voice_io._hear_the_rest), not longer
+                                        # silence, which would tax every turn
         onset_ms: int = 120,            # speech this long before we believe it
         preroll_ms: int = 300,          # keep this much audio before the onset
         max_ms: int = 300_000,          # 5 min runaway guard, not a turn limit
