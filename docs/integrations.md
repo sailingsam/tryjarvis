@@ -38,3 +38,14 @@ npx -y @gongrzhe/server-gmail-autoauth-mcp auth   # one-time browser sign-in
 
 No environment variable needed after that. Until you run the auth step, the
 server fails to start and the daemon carries on without it.
+
+## Notion
+
+"Add this to my ideas page", "what's on the launch checklist?"
+
+1. Create an internal integration at
+   [notion.so/profile/integrations](https://www.notion.so/profile/integrations)
+   and copy its secret.
+2. In Notion, share the pages/databases it should see with that integration
+   (page ⋯ menu → Connections).
+3. `export NOTION_TOKEN=ntn_...`
