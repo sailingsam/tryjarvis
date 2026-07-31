@@ -93,11 +93,10 @@ a{color:inherit;text-decoration:none}
 .brand{display:flex;align-items:center;gap:.55rem;color:var(--ink);font-weight:600;letter-spacing:-0.015em}
 .mark{width:1.5rem;height:1.5rem;display:block;flex:none}
 .nav .mono{color:var(--muted)}
-@media(max-width:600px){.nav .mono{display:none}}
 .navlinks{display:flex;align-items:center;gap:1.1rem}
-.ghnav{display:inline-flex;align-items:center;color:var(--muted);transition:color .3s}
+.ghnav{display:inline-flex;align-items:center;gap:.45rem;color:var(--muted);transition:color .3s}
 .ghnav:hover{color:var(--ink)}
-.ghnav svg{width:1.15rem;height:1.15rem;fill:currentColor}
+.ghnav svg{width:1.1rem;height:1.1rem;fill:currentColor;flex:none}
 
 /* hero: asymmetric header row, then the live stage — pinned to one full screen */
 .hero{position:relative;overflow:clip;padding-block:clamp(1.8rem,4vh,3rem) clamp(2rem,4vh,3rem);
@@ -406,6 +405,41 @@ h2{font-size:var(--t-h2);max-width:22ch}
 @media(max-width:520px){.clone pre{min-height:25em}}
 .ghbtn svg{width:1.05rem;height:1.05rem;fill:currentColor;flex:none}
 
+/* every part unplugs — a full-width amber band, sockets in a row, chips clicking through */
+.plug{background:oklch(0.955 0.035 82);border-top:0;overflow:hidden;text-align:center}
+.plug h2{margin-inline:auto;max-width:none}
+.plug h2 em{font-style:normal;color:var(--amber-dp)}
+.plug .say{margin-inline:auto;max-width:58ch}
+.plug .say b{color:var(--ink)}
+.plugnote{margin-top:clamp(1.2rem,2.5vh,1.8rem);color:var(--amber-dp);max-width:none}
+.mcps{margin-top:.8rem;display:flex;flex-wrap:wrap;gap:.45rem;justify-content:center;max-width:46rem;margin-inline:auto}
+.mcps span{display:inline-flex;align-items:center;gap:.4rem;background:var(--bg);border:1px solid var(--hair);
+  border-radius:99px;padding:.24rem .7rem;color:var(--body);font-size:.8rem}
+.mcps span::before{content:"";width:.28rem;height:.28rem;border-radius:50%;background:var(--amber);flex:none}
+.mcps .more{color:var(--amber-dp);border-style:dashed}
+.rack{margin-top:clamp(1.6rem,3.5vh,2.4rem);display:grid;gap:.7rem;
+  grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:899px){.rack{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:479px){.rack{grid-template-columns:1fr}}
+.prow{display:grid;gap:.6rem;justify-items:center;background:var(--bg);border:1px solid var(--hair);
+  border-radius:14px;padding:1rem .8rem 1.1rem;transition:border-color .35s,box-shadow .35s,transform .45s var(--ease)}
+.prow.hot{border-color:var(--amber);box-shadow:0 14px 34px -20px oklch(0.60 0.16 64 / .7);
+  transform:translateY(-3px)}
+.plabel{color:var(--muted);transition:color .35s}
+.prow.hot .plabel{color:var(--amber-dp)}
+.port{display:flex;align-items:center;justify-content:center;min-height:3.1rem;width:100%;
+  border:1px dashed var(--line);border-radius:10px;background:var(--surface);
+  padding:.35rem .5rem;overflow:hidden;transition:border-color .35s}
+.prow.hot .port{border-color:var(--amber)}
+.pchip{display:inline-flex;align-items:center;gap:.5rem;background:var(--bg);
+  border:1px solid var(--line);border-radius:8px;padding:.38rem .75rem;
+  color:var(--ink);font-size:.88rem;line-height:1.3}
+.pchip::before{content:"";width:.35rem;height:.35rem;border-radius:50%;background:var(--amber);flex:none}
+.js .pchip.out{animation:chipOut .32s var(--ease) both}
+.js .pchip.in{animation:chipIn .5s var(--ease) both}
+@keyframes chipOut{to{opacity:0;transform:translateY(-14px)}}
+@keyframes chipIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
 /* the close — the name on the left, the ask on the right */
 .close{position:relative;overflow:clip;border-top:0;
   background:linear-gradient(180deg, oklch(0.74 0.155 72 / .10), oklch(0.74 0.155 72 / .03) 55%, transparent)}
@@ -496,9 +530,9 @@ footer{position:relative;border-top:1px solid var(--hair);overflow:hidden;
 <nav class="nav"><div class="wrap">
   <span class="brand"><img class="mark" src="logo.svg" alt="" width="24" height="24" /> Mantrin</span>
   <span class="navlinks">
-    <span class="mono">a chief of staff for everyone</span>
-    <a class="ghnav" href="https://github.com/sailingsam/jarvis" target="_blank" rel="noopener" aria-label="Mantrin source on GitHub">
+    <a class="ghnav mono" href="https://github.com/sailingsam/jarvis" target="_blank" rel="noopener" aria-label="Mantrin source on GitHub">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.757-1.333-1.757-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+      <span>GitHub</span>
     </a>
   </span>
 </div></nav>
@@ -629,6 +663,39 @@ footer{position:relative;border-top:1px solid var(--hair);overflow:hidden;
   </div>
 </section>
 
+<section class="plug">
+  <div class="wrap">
+    <h2 class="rv">Every part <em>unplugs.</em></h2>
+    <p class="say rv">One pattern everywhere: <b>an interface, a set of adapters, one table that names them.</b> Pick what you trust, swap it when you change your mind — Mantrin doesn't care.</p>
+
+    <!-- the rack: one socket per part, adapters clicking through -->
+    <div class="rack rv" id="rack" aria-hidden="true">
+      <div class="prow" data-k="brain">
+        <span class="plabel mono">brain</span>
+        <span class="port"><span class="pchip">Claude</span></span>
+      </div>
+      <div class="prow" data-k="ears">
+        <span class="plabel mono">ears</span>
+        <span class="port"><span class="pchip">Whisper — local</span></span>
+      </div>
+      <div class="prow" data-k="voice">
+        <span class="plabel mono">voice</span>
+        <span class="port"><span class="pchip">Piper — local</span></span>
+      </div>
+      <div class="prow" data-k="memory">
+        <span class="plabel mono">memory</span>
+        <span class="port"><span class="pchip">SQLite — on your disk</span></span>
+      </div>
+    </div>
+    <p class="plugnote mono rv">and the hands — any mcp server clicks in:</p>
+    <div class="mcps rv" aria-hidden="true">
+      <span>WhatsApp</span><span>Gmail</span><span>Calendar</span><span>Notion</span>
+      <span>GitHub</span><span>Spotify</span><span>Home Assistant</span><span>Maps</span>
+      <span>Weather</span><span>X</span><span>web search</span><span class="more">+ anything that speaks mcp</span>
+    </div>
+  </div>
+</section>
+
 <section class="voice" id="voice">
   <div class="wrap">
     <div>
@@ -660,7 +727,7 @@ footer{position:relative;border-top:1px solid var(--hair);overflow:hidden;
       <p class="say rv">Mantrin will know your people, your promises, your days. You shouldn't have to take anyone's word for what happens with all that — <b>you can read every line.</b></p>
       <ul class="notlist rv">
         <li><span class="dot"></span><span><b>Your memory stays yours.</b> A file on your machine, not a black box on someone's server.</span></li>
-        <li><span class="dot"></span><span><b>Every piece is swappable.</b> The model, the ears, the voice — bring your own.</span></li>
+        <li><span class="dot"></span><span><b>No lock-in, ever.</b> Walk away any day — your memory leaves with you.</span></li>
         <li><span class="dot"></span><span><b>Run it, fork it, read it.</b> Trust that's earned in the open.</span></li>
       </ul>
       <div class="ctarow rv">
@@ -1146,6 +1213,59 @@ $ mantrin
     }
     new IntersectionObserver(function(items,ob){ items.forEach(function(it){
       if(it.isIntersecting){ play(); ob.disconnect() } }) },{threshold:.35}).observe(pre);
+  })();
+
+  /* ---- the rack: adapters click in and out, one socket at a time ---- */
+  (function(){
+    var rack=document.getElementById('rack'); if(!rack) return;
+    var CH={
+      brain:['Claude','any model you trust'],
+      ears:['Whisper — local','OpenAI','Grok','your phone, dictating'],
+      voice:['Piper — local','OpenAI','Grok','silent — text only'],
+      memory:['SQLite — on your disk','Postgres — anywhere']
+    };
+    var rows=[].slice.call(rack.querySelectorAll('.prow')), lastRow=null, timer;
+    /* lock each port at its tallest adapter so the rack never breathes */
+    function lockPorts(){
+      rows.forEach(function(r){
+        var port=r.querySelector('.port'), chip=r.querySelector('.pchip'),
+            keep=chip.textContent, h=0;
+        port.style.minHeight='';
+        CH[r.getAttribute('data-k')].forEach(function(c){
+          chip.textContent=c; h=Math.max(h,port.offsetHeight) });
+        chip.textContent=keep;
+        port.style.minHeight=h+'px';
+      });
+    }
+    lockPorts();
+    addEventListener('resize',function(){ clearTimeout(rack._r); rack._r=setTimeout(lockPorts,200) });
+    if(reduce) return;                     // the local-first defaults stand still
+    function swap(){
+      /* a random socket each time — never the same one twice in a row */
+      var r; do { r=rows[(Math.random()*rows.length)|0] } while(r===lastRow);
+      lastRow=r;
+      var k=r.getAttribute('data-k'), list=CH[k], chip=r.querySelector('.pchip'),
+          cur=chip.textContent,
+          showing=rows.map(function(x){ return x.querySelector('.pchip').textContent });
+      /* next adapter: not the current one, and not on display in another socket */
+      var pool=list.filter(function(c){ return c!==cur && showing.indexOf(c)<0 });
+      if(!pool.length) pool=list.filter(function(c){ return c!==cur });
+      var next=pool[(Math.random()*pool.length)|0];
+      r.classList.add('hot');
+      chip.classList.remove('in'); chip.classList.add('out');
+      setTimeout(function(){
+        chip.textContent=next;
+        chip.classList.remove('out'); chip.classList.add('in');
+      },360);
+      setTimeout(function(){ r.classList.remove('hot') },1400);
+    }
+    function tick(){ swap(); timer=setTimeout(tick, 1500+Math.random()*1300) }
+    function restart(){ clearTimeout(timer); timer=setTimeout(tick, 600) }
+    if('IntersectionObserver' in window){
+      new IntersectionObserver(function(items){ items.forEach(function(it){
+        if(it.isIntersecting){ restart() } else { clearTimeout(timer) } })
+      },{threshold:.3}).observe(rack);
+    } else { restart() }
   })();
 
   /* ---- star count, if github is feeling talkative ---- */
