@@ -44,6 +44,14 @@
         "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PAT}",
         "GITHUB_TOOLSETS": "context,repos,issues,pull_requests,notifications"
       }
+    },
+    {
+      "name": "home-assistant",
+      "command": "uvx",
+      "args": ["mcp-proxy", "http://homeassistant.local:8123/mcp_server/sse"],
+      "env": {
+        "API_ACCESS_TOKEN": "${HASS_TOKEN}"
+      }
     }
   ]
 }
