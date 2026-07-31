@@ -267,14 +267,26 @@ def restart() -> int:
 
 
 def status() -> int:
+    service_active = False
     if installed():
         result = _systemctl("is-active", UNIT)
         state = result.stdout.strip() or "unknown"
+        service_active = state == "active"
         print(f"service : {state} (starts at login)")
     else:
         print("service : not installed — `mantrin install` to start at every login")
     alive = _daemon_alive()
-    print(f"daemon  : {'answering on ' + str(config.SOCKET_FILE) if alive else 'not running'}")
+    if alive:
+        print(f"daemon  : answering on {config.SOCKET_FILE}")
+    elif service_active:
+        # The truthful in-between: the process exists but the socket isn't up
+        # yet. Loading the brain and connecting integrations takes ~30-60s
+        # after login — calling that "not running" reads as broken when it is
+        # simply young.
+        print("daemon  : starting up — models and connections take ~a minute "
+              "after login (`mantrin logs` to watch)")
+    else:
+        print("daemon  : not running")
     if alive:
         memory_db = config.DB_FILE
         if memory_db.exists():
