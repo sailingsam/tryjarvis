@@ -53,9 +53,9 @@
   --pad:clamp(1.4rem,5vw,3rem);
   --micro:0.8125rem;
   --t-body:clamp(1rem,0.97rem + 0.16vw,1.0625rem);
-  --t-lead:clamp(1.09rem,1.03rem + 0.32vw,1.24rem);
-  --t-h2:clamp(1.85rem,1.4rem + 2vw,2.95rem);
-  --t-h1:clamp(2rem,1.5rem + 2.1vw,3rem);
+  --t-lead:clamp(1.06rem,1.01rem + 0.26vw,1.17rem);
+  --t-h2:clamp(1.7rem,1.35rem + 1.6vw,2.45rem);
+  --t-h1:clamp(1.9rem,1.45rem + 1.9vw,2.75rem);
   --deep:      oklch(0.185 0.018 62);
   --deep-2:    oklch(0.235 0.022 62);
   --on-deep:   oklch(0.90 0.012 80);
@@ -253,7 +253,7 @@ button:active,.cta:active{transform:translateY(1px)}
 .ticks button:focus-visible{outline:2px solid var(--amber);outline-offset:3px}
 
 /* ---------- sections ---------- */
-section{position:relative;padding-block:clamp(2.8rem,6.5vh,4.8rem);border-top:1px solid var(--hair)}
+section{position:relative;padding-block:clamp(2.4rem,5.5vh,4rem);border-top:1px solid var(--hair)}
 h2{font-size:var(--t-h2);max-width:22ch}
 .say{margin-top:1rem;font-size:var(--t-lead);color:var(--body)}
 .say b{color:var(--ink);font-weight:600}
@@ -267,7 +267,7 @@ h2{font-size:var(--t-h2);max-width:22ch}
 .diff .say b,.diff .notlist li b{color:var(--on-deep-hi)}
 .diff .notlist li{color:oklch(0.76 0.012 80)}
 .diff .wrap{position:relative;display:grid;gap:clamp(1.6rem,5vw,4rem)}
-@media(min-width:880px){.diff .wrap{grid-template-columns:1fr 1fr;align-items:start}}
+@media(min-width:880px){.diff .wrap{grid-template-columns:1fr 1fr;align-items:center}}
 .diff h2 em{font-style:normal;color:var(--amber-lg);font-family:'Spectral',Georgia,serif;font-weight:300}
 .notlist{list-style:none;display:grid;gap:.8rem;margin-top:1.1rem}
 .notlist li{display:grid;grid-template-columns:auto 1fr;gap:.85rem;color:var(--body)}
@@ -279,41 +279,84 @@ h2{font-size:var(--t-h2);max-width:22ch}
 .cap .thread{position:absolute;left:.24rem;top:1.6rem;bottom:1.6rem;width:1px;background:var(--hair)}
 .cap .thread i{display:block;width:100%;height:100%;background:var(--amber);transform-origin:top;
   transform:scaleY(var(--fill,0));transition:transform 1.1s var(--ease)}
-.row{position:relative;display:grid;gap:.3rem clamp(1.5rem,4vw,3rem);padding:clamp(.95rem,2.2vh,1.35rem) 0 clamp(.95rem,2.2vh,1.35rem) 2rem;
+.row{position:relative;display:grid;gap:.3rem clamp(1.2rem,3vw,2.2rem);padding:clamp(.65rem,1.6vh,1rem) 0 clamp(.65rem,1.6vh,1rem) 2rem;
   border-radius:12px;transition:background .35s}
 .row:hover{background:var(--surface)}
 @media(min-width:760px){.row{grid-template-columns:minmax(0,12rem) 1fr;align-items:baseline;padding-left:2.4rem}}
 .row .dot{position:absolute;left:0;top:clamp(1.55rem,3.4vh,2.15rem)}
-.row h3{font-size:clamp(1.2rem,1.05rem + 0.55vw,1.5rem);font-weight:500}
+.row h3{font-size:clamp(1.12rem,1rem + 0.4vw,1.32rem);font-weight:500}
 .row p{color:var(--body);max-width:46ch}
 .row p b{color:var(--ink);font-weight:600}
 
-/* memory compounds — dots accumulating over time */
-.grow{display:grid;grid-template-columns:auto 1fr;gap:.45rem .9rem;align-items:center;
-  margin-top:1rem;max-width:28rem}
-.grow .glabel{color:var(--muted);white-space:nowrap}
-.grow .cluster{display:flex;flex-wrap:wrap;gap:.26rem}
-.grow .cluster i{width:.38rem;height:.38rem;border-radius:50%;background:var(--amber);opacity:.9}
-/* visible by default; the stagger only plays when the section is reached */
-.js .cap.lit .grow .cluster i{animation:popdot .4s var(--ease) var(--d,0ms) backwards}
 @keyframes popdot{from{transform:scale(0)}to{transform:scale(1)}}
 
-/* voice: no app to open — a waveform, then one brain across devices */
+/* say it once — a warm slab, and memory compounding live */
+.cap{background:var(--surface)}
+.cap .row:hover{background:var(--bg)}
+.capgrid{margin-top:clamp(1.1rem,2.5vh,1.6rem)}
+@media(min-width:980px){.capgrid{display:grid;grid-template-columns:1fr 1fr;
+  gap:clamp(2rem,4vw,3.5rem);align-items:center}}
+.capgrid .list{margin-top:0}
+.cstage{border:1px solid var(--hair);border-radius:18px;background:var(--bg);
+  padding:clamp(1rem,2vw,1.35rem);display:grid;gap:.75rem;justify-items:center}
+.crail{position:relative;width:100%;display:flex;justify-content:space-between;padding:0 .3rem}
+.crail::before{content:"";position:absolute;left:1.2rem;right:1.2rem;top:.4rem;height:1px;background:var(--line)}
+.crun{position:absolute;top:.4rem;width:.5rem;height:.5rem;border-radius:50%;background:var(--amber);
+  translate:-50% -50%;box-shadow:0 0 0 4px var(--amber-sf);transition:left .7s var(--ease)}
+.cstop{all:unset;cursor:pointer;display:grid;justify-items:center;gap:.45rem;z-index:1}
+.cstop i{width:.6rem;height:.6rem;border-radius:50%;background:var(--bg);border:1px solid var(--line);transition:.3s}
+.cstop[aria-current="true"] i{background:var(--amber);border-color:var(--amber);box-shadow:0 0 0 4px var(--amber-sf)}
+.cstop span{color:var(--muted);transition:color .3s}
+.cstop[aria-current="true"] span{color:var(--ink)}
+.cstop:focus-visible i{outline:2px solid var(--amber);outline-offset:3px}
+.csaid{font-family:'Spectral',Georgia,serif;font-size:clamp(1.02rem,.98rem + 0.35vw,1.22rem);
+  color:var(--ink);line-height:1.5;text-align:center;min-height:4.6rem;max-width:32ch}
+.csaid .w{display:inline-block}
+.js .csaid .w{animation:wIn .5s var(--ease) both;animation-delay:var(--d,0ms)}
+.cfield{position:relative;width:min(19rem,100%);height:4.2rem}
+.cfield i{position:absolute;width:.38rem;height:.38rem;border-radius:50%;background:var(--amber);opacity:.85}
+.js .cfield i{animation:popdot .4s var(--ease) both;animation-delay:var(--d,0ms)}
+.cchips{display:flex;flex-wrap:wrap;gap:.45rem;justify-content:center;min-height:2rem}
+.cchips span{display:inline-flex;align-items:center;gap:.4rem;background:var(--surface);
+  border:1px solid var(--line);border-radius:99px;padding:.22rem .65rem;color:var(--body);font-size:.78rem}
+.cchips span::before{content:"";width:.3rem;height:.3rem;border-radius:50%;background:var(--amber);flex:none}
+.js .cchips span{animation:memIn .5s var(--ease) both;animation-delay:var(--d,0ms)}
+.ccard{display:flex;align-items:baseline;flex-wrap:wrap;gap:.5rem;background:var(--surface);
+  border:1px solid var(--line);border-radius:12px;padding:.55rem .85rem;color:var(--ink);font-size:.9rem}
+.ccard .tick{align-self:flex-start}
+.ccard b{font-weight:600}
+.ccard .ctag{color:var(--muted);white-space:nowrap}
+.ccap{color:var(--muted);min-height:1.4rem}
+
+/* voice: the phone lights up at night — Mantrin speaks unprompted, in the dark */
+.voice{background:var(--deep);border-top:0;overflow:hidden}
+.voice::before{content:"";position:absolute;width:min(44rem,110%);aspect-ratio:1;left:-12%;top:-38%;
+  border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle, oklch(0.74 0.155 72 / .13), transparent 62%)}
 .voice .wrap{display:grid;gap:clamp(2rem,5vw,3.5rem)}
 @media(min-width:900px){.voice .wrap{grid-template-columns:1fr 1fr;align-items:center}}
-.voice p{font-size:var(--t-lead);margin-top:.9rem}
-.voice p b{color:var(--ink);font-weight:600}
-.heard{display:grid;gap:.8rem;justify-items:center;text-align:center;
-  border:1px solid var(--hair);border-radius:18px;background:var(--surface);
-  padding:clamp(1.4rem,4vw,2.1rem) clamp(1.2rem,4vw,1.8rem)}
+.voice h2{color:var(--on-deep-hi)}
+.voice p{font-size:var(--t-lead);margin-top:.9rem;color:var(--on-deep)}
+.voice p b{color:var(--on-deep-hi);font-weight:600}
+.heard{position:relative;display:grid;gap:.8rem;justify-items:center;text-align:center;
+  border:1px solid oklch(0.32 0.025 62);border-radius:18px;background:var(--deep-2);
+  padding:clamp(1.4rem,4vw,2.1rem) clamp(1.2rem,4vw,1.8rem);
+  box-shadow:0 24px 60px -30px oklch(0.74 0.155 72 / .25)}
 .wave{display:flex;align-items:center;gap:.28rem;height:2.6rem}
 .wave i{width:.19rem;border-radius:99px;background:var(--amber);height:var(--h,40%);
-  animation:speak 1.5s ease-in-out infinite;animation-delay:var(--d,0ms)}
+  animation:speak 1.5s ease-in-out infinite;animation-delay:var(--d,0ms);
+  animation-play-state:paused;opacity:.45;transition:opacity .4s}
+.voice.live .wave i{animation-play-state:running;opacity:1}
 @keyframes speak{0%,100%{transform:scaleY(.42)}50%{transform:scaleY(1)}}
-.heard .heardlbl{color:var(--muted)}
+.heard .heardlbl{color:var(--amber-lg)}
 .heard .spoken{font-family:'Spectral',Georgia,serif;font-size:clamp(1.15rem,1.05rem + 0.5vw,1.45rem);
-  color:var(--ink);max-width:27ch}
-.heard .after{color:var(--muted);max-width:30ch;margin:0}
+  color:var(--on-deep-hi);max-width:27ch;min-height:5.4rem}
+.heard .spoken .w{display:inline-block}
+.js .heard .spoken .w{animation:wIn .5s var(--ease) both;animation-delay:var(--d,0ms)}
+.hact{display:flex;align-items:flex-start;gap:.55rem;min-height:1.7rem;
+  color:var(--on-deep-hi);font-size:.95rem}
+.js .hact>*{animation:wIn .45s var(--ease) both}
+.heard .after{color:oklch(0.7 0.012 80);max-width:30ch;margin:0}
 
 /* one brain, every device — a single thread with a pulse running through */
 .devices{position:relative;display:flex;justify-content:space-between;align-items:flex-start;
@@ -337,32 +380,50 @@ h2{font-size:var(--t-h2);max-width:22ch}
   .tnode{grid-template-columns:auto 1fr;justify-items:start;align-items:center;gap:.9rem;width:100%}
 }
 
-/* the name — a type specimen, not a box */
-.name{position:relative;text-align:center;overflow:hidden}
-.name .wrap{display:grid;justify-items:center}
-.name .aura2{position:absolute;left:50%;top:8%;translate:-50% 0;width:min(38rem,120%);aspect-ratio:1.4;
-  pointer-events:none;z-index:-1;border-radius:50%;
-  background:radial-gradient(circle, oklch(0.74 0.155 72 / .14), transparent 64%)}
+/* open source — trust you can read, typing itself out */
+.open{overflow:hidden}
+.open::before{content:"";position:absolute;width:min(40rem,100%);aspect-ratio:1;right:-14%;bottom:-45%;
+  border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle, oklch(0.74 0.155 72 / .10), transparent 62%)}
+.open .wrap{display:grid;gap:clamp(2rem,5vw,3.5rem)}
+@media(min-width:900px){.open .wrap{grid-template-columns:1.05fr .95fr;align-items:center}}
+.open h2 em{font-style:normal;color:var(--amber-lg)}
+.clone{border:1px solid var(--hair);border-radius:18px;background:var(--surface);overflow:hidden;
+  box-shadow:0 24px 50px -32px oklch(0.21 0.012 70 / .35)}
+.clhead{display:flex;align-items:center;gap:.4rem;padding:.7rem 1rem;border-bottom:1px solid var(--hair);
+  background:var(--bg)}
+.clhead i{width:.6rem;height:.6rem;border-radius:50%;background:var(--line)}
+.clhead .mono{margin-left:.5rem;color:var(--muted)}
+.clone pre{padding:1.1rem 1.25rem 1.3rem;font-size:var(--micro);line-height:2;color:var(--ink);
+  white-space:pre-wrap;word-break:break-word;min-height:19.5em}
+.clone .tl{display:block;min-height:2em}
+.js .clone .tl.pop{animation:wIn .4s var(--ease) both}
+.clone .cmt{color:var(--muted)}
+.clone .ok{color:var(--amber-dp)}
+.clone .caret{display:inline-block;width:.55ch;height:1em;background:var(--amber);
+  vertical-align:-.12em;margin-left:1px;animation:blink 1.05s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+@media(max-width:520px){.clone pre{min-height:25em}}
+.ghbtn svg{width:1.05rem;height:1.05rem;fill:currentColor;flex:none}
+
+/* the close — the name on the left, the ask on the right */
+.close{position:relative;overflow:clip;border-top:0;
+  background:linear-gradient(180deg, oklch(0.74 0.155 72 / .10), oklch(0.74 0.155 72 / .03) 55%, transparent)}
+.close .aura{width:min(40rem,115%);aspect-ratio:1;left:-12%;top:-30%}
+.closegrid{display:grid;gap:clamp(2.2rem,5vw,4rem)}
+@media(min-width:900px){.closegrid{grid-template-columns:.9fr 1.1fr;align-items:center}}
 .term{font-family:'Spectral',Georgia,serif;font-weight:300;line-height:1;color:var(--ink);
-  font-size:clamp(2.5rem,1.6rem + 4.2vw,4.4rem);letter-spacing:-0.025em}
+  font-size:clamp(2.4rem,1.6rem + 3vw,3.6rem);letter-spacing:-0.025em}
 .term b{font-weight:300;color:var(--amber-lg)}
-.pron{margin-top:.85rem;display:flex;flex-wrap:wrap;justify-content:center;gap:.5rem 1.4rem;color:var(--muted)}
+.pron{margin-top:.8rem;display:flex;flex-wrap:wrap;gap:.5rem 1.2rem;color:var(--muted)}
 .pron .part{font-style:italic}
-.rule{width:min(26rem,64%);height:1px;background:var(--line);margin-block:clamp(1.4rem,3.2vh,2.1rem)}
-.defs{list-style:none;display:grid;gap:.85rem;max-width:46ch}
+.defs{list-style:none;display:grid;gap:.7rem;margin-top:clamp(1.1rem,2.5vh,1.6rem);max-width:44ch}
 .defs li{color:var(--body);font-size:var(--t-lead);line-height:1.5}
 .defs li b{color:var(--ink);font-weight:600}
-.name .after{margin-top:clamp(1.5rem,3.5vh,2.2rem);max-width:48ch;font-size:var(--t-lead);
-  padding-top:clamp(1.2rem,3vh,1.7rem);border-top:1px solid var(--hair)}
-.name .after b{color:var(--ink);font-weight:600}
-.name .after .punch{display:block;margin-top:.7rem;text-wrap:balance}
-
-/* close */
-.close{position:relative;overflow:clip;text-align:center;border-top:0;
-  background:linear-gradient(180deg, oklch(0.74 0.155 72 / .10), oklch(0.74 0.155 72 / .03) 55%, transparent)}
-.close .aura{width:min(40rem,115%);aspect-ratio:1;left:50%;translate:-50% 0;top:-24%}
-.close .wrap{display:flex;flex-direction:column;align-items:center;gap:.85rem}
-.close h2{max-width:18ch}
+.closebit h2{max-width:16ch}
+.closebit p{margin-top:1rem;font-size:var(--t-lead);color:var(--body);max-width:44ch}
+.closebit p b{color:var(--ink);font-weight:600}
+.closebit p.fine{font-size:var(--micro);color:var(--muted);max-width:none}
 
 footer{position:relative;border-top:1px solid var(--hair);overflow:hidden;
   padding-block:clamp(1.5rem,3.5vh,2.2rem) clamp(1rem,2.5vh,1.5rem)}
@@ -447,7 +508,7 @@ footer{position:relative;border-top:1px solid var(--hair);overflow:hidden;
   <div class="wrap">
     <div class="head">
       <div>
-        <span class="kicker mono"><span class="dot"></span> not a chatbot. not another ai agent.</span>
+        <span class="kicker mono"><span class="dot"></span> not a chatbot. not another ai agent. open source.</span>
         <h1>The chief of staff you were <em>never going to hire.</em></h1>
         <p class="hero-sub">Mantrin does the job a great one does: knows your people, holds your promises, guards your calendar and closes the loops you forget. <b>You just say it out loud, to whatever you're near.</b></p>
         <div class="ctarow">
@@ -530,32 +591,39 @@ footer{position:relative;border-top:1px solid var(--hair);overflow:hidden;
 <section class="cap">
   <div class="wrap">
     <h2 class="rv">Say it once. It turns into something that gets done.</h2>
-    <div class="list" id="caplist">
-      <div class="thread" aria-hidden="true"><i id="threadfill"></i></div>
-      <div class="row rv">
-        <span class="dot"></span>
-        <h3>Remembers</h3>
-        <div>
+    <div class="capgrid">
+      <div class="list" id="caplist">
+        <div class="thread" aria-hidden="true"><i id="threadfill"></i></div>
+        <div class="row rv">
+          <span class="dot"></span>
+          <h3>Remembers</h3>
           <p>Every conversation makes it know you better: your people, preferences and promises. <b>Memory that compounds</b> instead of resetting.</p>
-          <div class="grow" aria-hidden="true">
-            <span class="glabel mono">week 1</span>
-            <span class="cluster" data-n="4"></span>
-            <span class="glabel mono">month 1</span>
-            <span class="cluster" data-n="15"></span>
-            <span class="glabel mono">month 6</span>
-            <span class="cluster" data-n="40"></span>
-          </div>
+        </div>
+        <div class="row rv">
+          <span class="dot"></span>
+          <h3>Understands</h3>
+          <p>It connects what's happening across your world. Who matters, what's due, what you're actually trying to get done. <b>Context, not answers.</b></p>
+        </div>
+        <div class="row rv">
+          <span class="dot"></span>
+          <h3>Acts</h3>
+          <p>It sends the message, holds the slot, chases the loose end. <b>It does the thing,</b> and asks first when the stakes are real.</p>
         </div>
       </div>
-      <div class="row rv">
-        <span class="dot"></span>
-        <h3>Understands</h3>
-        <p>It connects what's happening across your world. Who matters, what's due, what you're actually trying to get done. <b>Context, not answers.</b></p>
-      </div>
-      <div class="row rv">
-        <span class="dot"></span>
-        <h3>Acts</h3>
-        <p>It sends the message, holds the slot, chases the loose end. <b>It does the thing,</b> and asks first when the stakes are real.</p>
+
+      <!-- the same ask, shrinking over months — memory doing the remembering -->
+      <div class="cstage rv" id="cstage" aria-hidden="true">
+        <div class="crail" id="crail">
+          <button type="button" class="cstop" aria-current="true"><i></i><span class="mono">week 1</span></button>
+          <button type="button" class="cstop"><i></i><span class="mono">month 2</span></button>
+          <button type="button" class="cstop"><i></i><span class="mono">month 6</span></button>
+          <span class="crun" id="crun" aria-hidden="true"></span>
+        </div>
+        <p class="csaid" id="csaid"></p>
+        <div class="cfield" id="cfield"></div>
+        <div class="cchips" id="cchips"></div>
+        <div class="ccard"><span class="tick"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"/></svg></span><span><b>Tuesday 8pm, held.</b> Veg-friendly.</span><span class="ctag mono">same result, every time</span></div>
+        <p class="ccap mono" id="ccap"></p>
       </div>
     </div>
   </div>
@@ -577,38 +645,66 @@ footer{position:relative;border-top:1px solid var(--hair);overflow:hidden;
         <i style="--h:68%;--d:810ms"></i><i style="--h:26%;--d:900ms"></i>
       </div>
       <span class="mono heardlbl">mantrin, unprompted</span>
-      <p class="spoken">“You told Tom the deck lands before Friday. It's Thursday and it's still in drafts. Want me to send it?”</p>
-      <p class="after">Thursday, 9:40am. You hadn't thought about it yet.</p>
+      <p class="spoken" id="h-spoken">“Your mum's birthday is in ten days. Flowers again, or something braver this year?”</p>
+      <p class="hact" id="h-act"><span class="tick"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"/></svg></span><span>Noted — two ideas saved, reminder set for Saturday.</span></p>
+      <p class="after">Ten days out. You hadn't thought of it yet.</p>
     </div>
 
   </div>
 </section>
 
-<section class="name">
-  <span class="aura2" aria-hidden="true"></span>
+<section class="open" id="open">
   <div class="wrap">
-    <p class="term rv">man<b>·</b>trin</p>
-    <p class="pron mono rv"><span>/ˈmʌn.trɪn/</span><span class="part">noun, Sanskrit</span></p>
-    <span class="rule rv" aria-hidden="true"></span>
-    <ul class="defs rv">
-      <li>The counselor who sat beside the ruler.</li>
-      <li><b>Knew every person, every promise, every rival.</b> Forgot nothing.</li>
-      <li>Spoke when it mattered. Acted before being asked.</li>
-    </ul>
-    <p class="after rv">Today the job has other names: chief of staff, executive assistant, the person who runs your life so you can do your work. You still have to be rich or senior to get one.
-      <b class="punch">That's the part we're changing.</b></p>
+    <div>
+      <h2 class="rv">Something this personal has to be <em>open.</em></h2>
+      <p class="say rv">Mantrin will know your people, your promises, your days. You shouldn't have to take anyone's word for what happens with all that — <b>you can read every line.</b></p>
+      <ul class="notlist rv">
+        <li><span class="dot"></span><span><b>Your memory stays yours.</b> A file on your machine, not a black box on someone's server.</span></li>
+        <li><span class="dot"></span><span><b>Every piece is swappable.</b> The model, the ears, the voice — bring your own.</span></li>
+        <li><span class="dot"></span><span><b>Run it, fork it, read it.</b> Trust that's earned in the open.</span></li>
+      </ul>
+      <div class="ctarow rv">
+        <a class="cta ghbtn" href="https://github.com/sailingsam/jarvis" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.757-1.333-1.757-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+          Read the code <span class="arw" aria-hidden="true">→</span></a>
+        <span class="fine mono" id="gh-stars" style="margin:0">github.com/sailingsam/jarvis</span>
+      </div>
+    </div>
+
+    <div class="clone rv" aria-hidden="true">
+      <div class="clhead"><i></i><i></i><i></i><span class="mono">your machine</span></div>
+      <pre class="mono"><span class="cmt"># your keys, your machine, your memory</span>
+$ git clone github.com/sailingsam/jarvis
+$ mantrin
+
+<span class="ok">▸ memory</span>   data/jarvis.db — local, yours
+<span class="ok">▸ model</span>    swappable, bring your own
+<span class="ok">▸ voice</span>    same
+
+“Good morning. Two loops open — want the brief?”</pre>
+    </div>
   </div>
 </section>
 
 <section class="close">
   <span class="aura" aria-hidden="true"></span>
-  <div class="wrap">
-    <h2 class="rv">Everyone deserves a chief of staff.</h2>
-    <p class="rv">We're building it for one person at a time. Tell us how your days actually run, and we'll tell you exactly where it is.</p>
-    <div class="rv" style="margin-top:.4rem">
-      <a class="cta" href="https://cal.com/sailingsam" target="_blank" rel="noopener">Book a call <span class="arw" aria-hidden="true">→</span></a>
+  <div class="wrap closegrid">
+    <div class="namebit rv">
+      <p class="term">man<b>·</b>trin</p>
+      <p class="pron mono"><span>/ˈmʌn.trɪn/</span><span class="part">noun, Sanskrit</span></p>
+      <ul class="defs">
+        <li>The counselor who sat beside the ruler — <b>knew every person, every promise, every rival. Forgot nothing.</b></li>
+        <li>Spoke when it mattered. Acted before being asked.</li>
+      </ul>
     </div>
-    <p class="rv fine mono" style="margin-top:.2rem">No signup, no waitlist. Just a conversation.</p>
+    <div class="closebit">
+      <h2 class="rv">Everyone deserves a chief of staff.</h2>
+      <p class="rv">You still have to be rich or senior to get one. <b>That's the part we're changing</b> — one person at a time. Tell us how your days actually run, and we'll tell you exactly where it is.</p>
+      <div class="ctarow rv">
+        <a class="cta" href="https://cal.com/sailingsam" target="_blank" rel="noopener">Book a call <span class="arw" aria-hidden="true">→</span></a>
+      </div>
+      <p class="rv fine mono">No signup, no waitlist. Just a conversation.</p>
+    </div>
   </div>
 </section>
 
@@ -900,19 +996,167 @@ footer{position:relative;border-top:1px solid var(--hair);overflow:hidden;
     var f=document.getElementById('threadfill'); if(f) f.style.setProperty('--fill','1');
   }
 
-  /* ---- memory compounds: build the dot clusters ---- */
-  var clusters=document.querySelectorAll('.grow .cluster');
-  clusters.forEach(function(c){
-    var n=+c.dataset.n||0, html='';
-    for(var k=0;k<n;k++) html+='<i style="--d:'+(k*22)+'ms"></i>';
-    c.innerHTML=html;
-  });
-  var cap=document.querySelector('.cap');
-  if(cap && !reduce && 'IntersectionObserver' in window){
-    new IntersectionObserver(function(items,ob){
-      items.forEach(function(it){ if(it.isIntersecting){ cap.classList.add('lit'); ob.disconnect(); } });
-    },{threshold:.25}).observe(cap);
-  }
+  /* ---- the compounding stage: same ask, fewer words, memory does the rest ---- */
+  (function(){
+    var st=document.getElementById('cstage'); if(!st) return;
+    var said=document.getElementById('csaid'), field=document.getElementById('cfield'),
+        chips=document.getElementById('cchips'), ccap=document.getElementById('ccap'),
+        run=document.getElementById('crun'), stops=[].slice.call(st.querySelectorAll('.cstop')),
+        i=0, timer, seen=0;
+    var ST=[
+      { q:'“Book dinner with Tom next Tuesday, 8pm — somewhere vegetarian.”',
+        n:4, chips:[], cap:'you said 11 words' },
+      { q:'“Dinner with Tom next week.”',
+        n:15, chips:['You'+"’"+'re vegetarian','Tuesdays suit Tom'], cap:'you said 6 words' },
+      { q:'“The usual with Tom.”',
+        n:40, chips:['“the usual” = Terra, Tuesday 8pm'], cap:'4 words. it knows the rest.' }
+    ];
+    /* one fixed constellation of 40 spots, filled in as months pass */
+    var P=[]; (function(){ var s=7;
+      function rnd(){ s=(s*16807)%2147483647; return s/2147483647 }
+      for(var k=0;k<40;k++){ var col=k%10, row=(k/10)|0;
+        P.push([(col+.2+rnd()*.6)*10, (row+.18+rnd()*.64)*25]) }
+      for(var k=39;k>0;k--){ var j=(rnd()*(k+1))|0, t=P[k]; P[k]=P[j]; P[j]=t }
+    })();
+    function dots(n,animate){
+      var html='';
+      for(var k=0;k<n;k++){
+        var d=(animate&&k>=seen)?(k-seen)*42:0;
+        html+='<i style="left:'+P[k][0].toFixed(1)+'%;top:'+P[k][1].toFixed(1)+'%;--d:'+d+'ms"></i>';
+      }
+      field.innerHTML=html; seen=Math.max(seen,n);
+    }
+    function go(n,animate){
+      i=n;
+      stops.forEach(function(b,k){ b.setAttribute('aria-current', k===n?'true':'false') });
+      run.style.left=(stops[n].offsetLeft+stops[n].offsetWidth/2)+'px';
+      var s=ST[n], anim=animate&&!reduce;
+      if(anim){
+        said.innerHTML=s.q.split(' ').map(function(w,k){
+          return '<span class="w" style="--d:'+(k*70)+'ms">'+w+'</span>' }).join(' ');
+        chips.innerHTML=s.chips.map(function(c,k){
+          return '<span style="--d:'+(350+k*170)+'ms">'+c+'</span>' }).join('');
+      } else {
+        said.textContent=s.q;
+        chips.innerHTML=s.chips.map(function(c){ return '<span>'+c+'</span>' }).join('');
+      }
+      dots(s.n,anim);
+      ccap.textContent=s.cap;
+    }
+    stops.forEach(function(b,k){ b.onclick=function(){ go(k,true); restart() } });
+    function restart(){ clearInterval(timer);
+      if(!reduce) timer=setInterval(function(){
+        var nx=(i+1)%ST.length; if(nx===0){ seen=0 } go(nx,true) },6200) }
+    /* lock every slot at its tallest state so the box never breathes */
+    function lockHeights(){
+      said.style.minHeight=''; chips.style.minHeight='';
+      var keep=said.innerHTML, keepC=chips.innerHTML, hS=0, hC=0;
+      ST.forEach(function(s){
+        said.textContent=s.q; hS=Math.max(hS,said.offsetHeight);
+        chips.innerHTML=s.chips.map(function(c){ return '<span>'+c+'</span>' }).join('');
+        hC=Math.max(hC,chips.offsetHeight);
+      });
+      said.innerHTML=keep; chips.innerHTML=keepC;
+      said.style.minHeight=hS+'px'; chips.style.minHeight=hC+'px';
+    }
+    if(reduce){ go(2,false); lockHeights() }
+    else {
+      go(0,false);
+      lockHeights();
+      if('IntersectionObserver' in window){
+        new IntersectionObserver(function(items){ items.forEach(function(it){
+          if(it.isIntersecting){ restart() } else { clearInterval(timer) } })
+        },{threshold:.3}).observe(st);
+      } else { restart() }
+    }
+    addEventListener('resize',function(){ clearTimeout(st._r);
+      st._r=setTimeout(function(){
+        run.style.left=(stops[i].offsetLeft+stops[i].offsetWidth/2)+'px';
+        lockHeights();
+      },180) });
+  })();
+
+  /* ---- the unprompted moment replays when you scroll to it ---- */
+  (function(){
+    var sec=document.querySelector('.voice'); if(!sec) return;
+    var spoken=document.getElementById('h-spoken'), act=document.getElementById('h-act');
+    if(!spoken||!act) return;
+    var full=spoken.textContent, actHTML=act.innerHTML, playing=false;
+    if(reduce||!('IntersectionObserver' in window)) return;   // static version stands
+    /* lock the card's final geometry before anything is cleared — no jitter, ever */
+    function lock(){ spoken.style.minHeight=spoken.offsetHeight+'px';
+      act.style.minHeight=act.offsetHeight+'px' }
+    lock();
+    addEventListener('resize',function(){ clearTimeout(act._r); act._r=setTimeout(function(){
+      if(playing) return;
+      spoken.style.minHeight=''; act.style.minHeight='';
+      spoken.textContent=full; act.innerHTML=actHTML; lock();
+    },200) });
+    function playV(){
+      if(playing) return; playing=true;
+      act.innerHTML='';
+      var words=full.split(' ');
+      spoken.innerHTML=words.map(function(w,k){
+        return '<span class="w" style="--d:'+(250+k*90)+'ms">'+w+'</span>' }).join(' ');
+      sec.classList.add('live');
+      var t=250+words.length*90+550;
+      setTimeout(function(){ sec.classList.remove('live'); act.innerHTML=actHTML },t);
+      setTimeout(function(){ playing=false },t+3000);
+    }
+    new IntersectionObserver(function(items){ items.forEach(function(it){
+      if(it.isIntersecting) playV() }) },{threshold:.45}).observe(sec);
+  })();
+
+  /* ---- the terminal types itself when it comes into view ---- */
+  (function(){
+    var pre=document.querySelector('.clone pre'); if(!pre) return;
+    if(reduce||!('IntersectionObserver' in window)) return;   // static version stands
+    var L=[
+      {t:'s', h:'<span class="cmt"># your keys, your machine, your memory</span>'},
+      {t:'t', x:'$ git clone github.com/sailingsam/jarvis'},
+      {t:'t', x:'$ mantrin'},
+      {t:'s', h:''},
+      {t:'p', h:'<span class="ok">▸ memory</span>   data/jarvis.db — local, yours'},
+      {t:'p', h:'<span class="ok">▸ model</span>    swappable, bring your own'},
+      {t:'p', h:'<span class="ok">▸ voice</span>    same'},
+      {t:'s', h:''},
+      {t:'t', x:'“Good morning. Two loops open — want the brief?”'}
+    ];
+    var done=false;
+    function play(){
+      if(done) return; done=true;
+      pre.innerHTML='';
+      var caret=document.createElement('span'); caret.className='caret';
+      var li=0;
+      (function next(){
+        if(li>=L.length){ setTimeout(function(){ caret.remove() },2500); return }
+        var l=L[li++], line=document.createElement('span'); line.className='tl';
+        pre.appendChild(line);
+        if(l.t==='s'){ line.innerHTML=l.h; next() }
+        else if(l.t==='p'){ line.innerHTML=l.h; line.classList.add('pop'); setTimeout(next,300) }
+        else {
+          line.appendChild(caret); var ci=0;
+          (function tick(){
+            if(ci<l.x.length){ line.insertBefore(document.createTextNode(l.x.charAt(ci++)),caret);
+              setTimeout(tick, 16+Math.random()*28) }
+            else { setTimeout(next,260) }
+          })();
+        }
+      })();
+    }
+    new IntersectionObserver(function(items,ob){ items.forEach(function(it){
+      if(it.isIntersecting){ play(); ob.disconnect() } }) },{threshold:.35}).observe(pre);
+  })();
+
+  /* ---- star count, if github is feeling talkative ---- */
+  (function(){
+    var el=document.getElementById('gh-stars'); if(!el||!window.fetch) return;
+    fetch('https://api.github.com/repos/sailingsam/jarvis')
+      .then(function(r){ return r.ok ? r.json() : null })
+      .then(function(d){ if(d && typeof d.stargazers_count==='number')
+        el.textContent='★ '+d.stargazers_count+' · github.com/sailingsam/jarvis' })
+      .catch(function(){});
+  })();
 
 })();
 </script>
