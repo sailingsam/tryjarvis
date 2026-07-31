@@ -77,3 +77,15 @@ client speaks.
 2. In your HA profile, create a long-lived access token.
 3. `export HASS_TOKEN=...` and fix the URL in the block if your HA isn't at
    `homeassistant.local:8123`.
+
+## Spotify
+
+"Put on something quiet", "skip this one."
+
+1. Create an app at
+   [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard)
+   with redirect URI `http://127.0.0.1:8080/callback`.
+2. `export SPOTIFY_CLIENT_ID=...` and `export SPOTIFY_CLIENT_SECRET=...`
+
+Playback control needs Spotify Premium, and something (a phone, the desktop
+app) has to be an active device.
