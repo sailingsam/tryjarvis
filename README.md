@@ -1,7 +1,11 @@
 # Mantrin
 
-A personal chief of staff you talk to. It remembers your people, your promises
-and your plans across every conversation, and then acts on them.
+**Everyone deserves a chief of staff — your personal Jarvis.**
+
+Mantrin (you'll also see it called Jarvis — that's the name it answers to, and
+the name of the package inside) is a personal chief of staff you talk to. It
+remembers your people, your promises and your plans across every conversation,
+and then acts on them.
 
 Not a recorder and not a chat window. You say something once; it holds onto it
 and does something about it.
@@ -108,6 +112,13 @@ on one set of credentials — which is why voice runs there rather than in the C
 ./.venv/bin/python -m jarvis daemon        # run it in the foreground to watch it
 ./.venv/bin/python -m jarvis --no-voice    # don't hold the microphone
 ```
+
+## License
+
+[FSL-1.1-ALv2](LICENSE.md) — use it, change it, run it for yourself or inside
+your company, all free. The one thing you can't do is take this code and sell
+it as your own product or hosted service. Every release becomes plain
+Apache 2.0 two years after it ships.
 
 ## Not there yet
 
