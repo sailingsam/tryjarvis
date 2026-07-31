@@ -112,15 +112,31 @@ WantedBy=default.target
 """
 
 
+def _service_pid() -> int:
+    """MainPID of the running service, or 0."""
+    result = _systemctl("show", "-p", "MainPID", "--value", UNIT)
+    try:
+        return int(result.stdout.strip() or 0)
+    except ValueError:
+        return 0
+
+
 def _stop_manual_daemon() -> None:
     """Stop a daemon started by hand, so the service doesn't find the socket
-    taken and immediately exit."""
+    taken and immediately exit. A daemon the *service* owns is left alone —
+    signalling it here just fights systemd's own lifecycle."""
     if not PID_FILE.exists():
         return
     try:
         pid = int(PID_FILE.read_text().strip())
+    except ValueError:
+        PID_FILE.unlink(missing_ok=True)
+        return
+    if installed() and pid == _service_pid():
+        return                              # that one is systemd's to manage
+    try:
         os.kill(pid, signal.SIGINT)         # the daemon's graceful path
-    except (ValueError, ProcessLookupError, PermissionError):
+    except (ProcessLookupError, PermissionError):
         PID_FILE.unlink(missing_ok=True)
         return
     for _ in range(20):
@@ -135,11 +151,35 @@ def _daemon_alive() -> bool:
     return daemon.is_running()
 
 
+def _install_launcher() -> Path | None:
+    """Put a `mantrin` command on the PATH.
+
+    Everything else says "run mantrin status" — that has to actually work from
+    a fresh terminal, not only as `./.venv/bin/python -m jarvis` from inside
+    the project directory. A two-line launcher in ~/.local/bin (on PATH on any
+    modern distro) is all it takes.
+    """
+    bin_dir = Path.home() / ".local" / "bin"
+    try:
+        bin_dir.mkdir(parents=True, exist_ok=True)
+        launcher = bin_dir / "mantrin"
+        launcher.write_text(f'#!/bin/sh\nexec "{sys.executable}" -m jarvis "$@"\n')
+        launcher.chmod(0o755)
+    except OSError as e:                    # pragma: no cover
+        print(f"(couldn't install the `mantrin` command: {e})")
+        return None
+    if not any(str(bin_dir) == p for p in os.environ.get("PATH", "").split(":")):
+        print(f"(note: {bin_dir} is not on your PATH — add it to use `mantrin` directly)")
+    return launcher
+
+
 def install() -> int:
     if not _have_systemd():
         print("This system doesn't run systemd — start Mantrin with `mantrin` "
               "instead (it stays alive in the background until reboot).")
         return 1
+    if _install_launcher():
+        print("`mantrin` is now a command — works from any terminal.")
     carried = _persist_shell_keys()
     if carried:
         print(f"Saved {', '.join(carried)} into {config.CONFIG_FILE} — a service "
@@ -150,7 +190,13 @@ def install() -> int:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(_render_unit())
     _systemctl("daemon-reload")
-    result = _systemctl("enable", "--now", UNIT)
+    # Re-running install over a live service must restart it (to pick up the
+    # fresh unit), not just enable — and never signal its process directly.
+    _systemctl("enable", UNIT)
+    if _systemctl("is-active", UNIT).stdout.strip() == "active":
+        result = _systemctl("restart", UNIT)
+    else:
+        result = _systemctl("start", UNIT)
     if result.returncode != 0:
         print(f"Couldn't enable the service: {result.stderr.strip()}")
         return 1
