@@ -62,6 +62,19 @@
         "SPOTIFY_CLIENT_SECRET": "${SPOTIFY_CLIENT_SECRET}",
         "SPOTIFY_REDIRECT_URI": "http://127.0.0.1:8080/callback"
       }
+    },
+    {
+      "name": "weather",
+      "command": "uvx",
+      "args": ["--with", "mcp<2", "--from", "open-meteo-mcp", "open_meteo_mcp"]
+    },
+    {
+      "name": "google-maps",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-google-maps"],
+      "env": {
+        "GOOGLE_MAPS_API_KEY": "${GOOGLE_MAPS_API_KEY}"
+      }
     }
   ]
 }

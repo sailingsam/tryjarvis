@@ -89,3 +89,18 @@ client speaks.
 
 Playback control needs Spotify Premium, and something (a phone, the desktop
 app) has to be an active device.
+
+## Weather
+
+"Do I need an umbrella?" Open-Meteo is free and needs no key — this block works
+the moment it's in `mcp.json` (via `uvx`, so it needs
+[uv](https://docs.astral.sh/uv/) installed). The `mcp<2` pin is because the
+server hasn't caught up with the SDK's `McpError` rename yet.
+
+## Google Maps
+
+"How long to the airport right now?"
+
+1. In the same Google Cloud project, enable the **Places**, **Directions** and
+   **Distance Matrix** APIs and create an API key.
+2. `export GOOGLE_MAPS_API_KEY=...`
