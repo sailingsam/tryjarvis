@@ -264,6 +264,7 @@ def run() -> int:
         # underway.
         try:
             turns.stop()
+            brain.close()       # let queued memory updates land before exit
             server.close()
             if sock_path.exists():
                 sock_path.unlink()

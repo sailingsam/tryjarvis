@@ -73,6 +73,7 @@ def _run_conversation(dictation: bool = False) -> None:
                 break
             io.speak(brain.think(user_text, io=io))
     finally:
+        brain.close()           # let queued memory updates land before exit
         close = getattr(io, "close", None)
         if callable(close):
             close()
