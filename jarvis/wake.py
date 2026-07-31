@@ -74,10 +74,7 @@ class OpenWakeWord:
             "ignore", message=".*CUDAExecutionProvider.*", category=UserWarning
         )
 
-        available = {}
-        for path in openwakeword.get_pretrained_model_paths():
-            name = path.rsplit("/", 1)[-1].rsplit("_v", 1)[0]
-            available[name] = path
+        available = available_models()
         if phrase not in available:
             raise ValueError(
                 f"no pretrained model for {phrase!r}. Available: "
@@ -109,21 +106,77 @@ class OpenWakeWord:
             reset()
 
 
-def build(phrase: str) -> WakeGate:
-    """A gate for this phrase, or an open door if it is empty.
+def available_models() -> dict[str, str]:
+    """Pretrained phrase -> model path. Raises ImportError without openwakeword."""
+    import openwakeword
 
-    Falls back to always-listening with a printed warning rather than refusing to
-    start: a missing wake-word model should degrade the product, not break it.
+    models = {}
+    for path in openwakeword.get_pretrained_model_paths():
+        name = path.rsplit("/", 1)[-1].rsplit("_v", 1)[0]
+        models[name] = path
+    return models
+
+
+def available_phrases() -> list[str]:
+    """Wake phrases that can actually be detected on this machine."""
+    try:
+        return sorted(available_models())
+    except Exception:                               # noqa: BLE001
+        return []
+
+
+def resolve(phrase: str) -> str | None:
+    """Map what a person typed to a phrase a model exists for.
+
+    "jarvis" means "hey_jarvis" to a human; requiring the exact internal model
+    name is the kind of thing the philosophy exists to forbid. Exact match
+    first, then a containment match either way round.
+    """
+    norm = phrase.strip().lower().replace(" ", "_")
+    if not norm:
+        return None
+    names = available_phrases()
+    if norm in names:
+        return norm
+    for name in names:
+        if norm in name or name in norm:
+            return name
+    return None
+
+
+DEFAULT_PHRASE = "hey_jarvis"
+
+
+def build(phrase: str) -> WakeGate:
+    """A gate for this phrase — empty string means deliberately no gate.
+
+    An unknown phrase falls back to the *default gate*, never to an open door:
+    with hosted ears, an open microphone ships everything said near the machine
+    to a transcription service, on the user's bill. Degrading to a different
+    wake word is an inconvenience; degrading to no wake word is a breach.
     """
     if not phrase:
         return Always()
     try:
-        return OpenWakeWord(phrase)
-    except Exception as e:                          # noqa: BLE001
+        resolved = resolve(phrase)
+        if resolved is None:
+            print(
+                f"(no wake-word model for '{phrase}' — using "
+                f"'{DEFAULT_PHRASE.replace('_', ' ')}' instead. Available: "
+                f"{', '.join(available_phrases())}. A custom phrase needs a "
+                f"trained model; run `mantrin setup` to pick one.)",
+                flush=True,
+            )
+            resolved = DEFAULT_PHRASE
+        elif resolved != phrase:
+            print(f"(wake word '{phrase}' -> using the '{resolved.replace('_', ' ')}' model)",
+                  flush=True)
+        return OpenWakeWord(resolved)
+    except ImportError:
         print(
-            f"(wake word '{phrase}' unavailable: {e}\n"
-            f" listening without a gate — everything you say near the mic will be "
-            f"transcribed. `pip install openwakeword` to enable it.)",
+            "(openwakeword is not installed — listening without a gate; "
+            "everything said near the mic will be transcribed. "
+            "pip install -r requirements-voice.txt to fix this.)",
             flush=True,
         )
         return Always()

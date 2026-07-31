@@ -15,7 +15,7 @@ from __future__ import annotations
 import getpass
 import os
 
-from . import audio, config
+from . import audio, config, wake
 from .providers import voice_registry as registry
 
 
@@ -72,6 +72,45 @@ def _collect_keys(specs: list, saved: dict) -> dict:
     return saved
 
 
+def _choose_wake_word(current: str) -> str:
+    """Pick a wake phrase from what can actually be detected.
+
+    Free text here burned a user: they typed "jarvis", no model by that name
+    exists, and the gate silently fell open. Detection needs a trained model
+    per phrase, so the menu offers exactly the phrases that have one — plus
+    off, which at least is an *informed* open door.
+    """
+    phrases = wake.available_phrases()
+    print("\n  Wake word")
+    print("    An always-on microphone needs a gate, or everything said near")
+    print("    the machine gets transcribed (and billed, on hosted ears). The")
+    print("    gate runs locally. Each phrase needs a trained model, so the")
+    print("    choices are the models that exist:")
+    if not phrases:
+        print("    (openwakeword is not installed — no gate is possible yet;")
+        print("     pip install -r requirements-voice.txt, then rerun setup)")
+        return current
+    options = phrases + ["off — always listen (everything gets transcribed)"]
+    for i, name in enumerate(options, 1):
+        pretty = name if name.startswith("off") else f"“{name.replace('_', ' ')}”"
+        mark = "   [current]" if name == current or (name.startswith("off") and not current) else ""
+        print(f"    {i}. {pretty}{mark}")
+    while True:
+        default = phrases.index(current) + 1 if current in phrases else len(options) if not current else 1
+        answer = input(f"  Pick 1-{len(options)} [{default}]: ").strip()
+        if not answer:
+            answer = str(default)
+        if answer.isdigit() and 1 <= int(answer) <= len(options):
+            picked = options[int(answer) - 1]
+            return "" if picked.startswith("off") else picked
+        resolved = wake.resolve(answer)     # typed a name — accept close matches
+        if answer.lower() in ("none", "off"):
+            return ""
+        if resolved:
+            return resolved
+        print("  Not one of the options.")
+
+
 def run() -> int:
     try:
         return _run()
@@ -101,18 +140,7 @@ def _run() -> int:
     settings["stt"], settings["tts"] = stt, tts
 
     if registry.STT[stt].mode != "text":
-        default_wake = settings.get("wake_word", "hey_jarvis")
-        print("\n  Wake word")
-        print("    An always-on microphone needs a gate, or everything said near")
-        print("    the machine gets transcribed. This runs locally — only speech")
-        print("    after the wake word is sent anywhere.")
-        answer = input(f"  Wake word, or 'none' to always listen [{default_wake or 'none'}]: ").strip()
-        if answer.lower() == "none":
-            settings["wake_word"] = ""
-        elif answer:
-            settings["wake_word"] = answer
-        else:
-            settings["wake_word"] = default_wake
+        settings["wake_word"] = _choose_wake_word(settings.get("wake_word", wake.DEFAULT_PHRASE))
 
     path = config.save_settings(settings)
     print(f"\nSaved to {path} (readable only by you).")
