@@ -343,7 +343,8 @@ h2{font-size:var(--t-h2);max-width:22ch}
   translate:-50% -50%;box-shadow:0 0 0 4px var(--amber-sf);transition:left .5s var(--ease)}
 .cstop{all:unset;cursor:pointer;display:grid;justify-items:center;gap:.45rem;z-index:1}
 .cstop i{width:.6rem;height:.6rem;border-radius:50%;background:var(--bg);border:1px solid var(--line);transition:.3s}
-.cstop[aria-current="true"] i{background:var(--amber);border-color:var(--amber);box-shadow:0 0 0 4px var(--amber-sf)}
+/* the sliding runner is the only amber circle — stops stay hollow under it */
+.cstop[aria-current="true"] i{border-color:var(--amber)}
 .cstop span{color:var(--muted);transition:color .3s}
 .cstop[aria-current="true"] span{color:var(--ink)}
 .cstop:focus-visible i{outline:2px solid var(--amber);outline-offset:3px}
