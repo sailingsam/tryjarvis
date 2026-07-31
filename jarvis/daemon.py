@@ -26,10 +26,12 @@ Socket protocol (newline-delimited JSON, one client at a time):
 from __future__ import annotations
 
 import json
+import os
 import queue
 import socket
 import sys
 import threading
+import time
 
 from . import config
 from .core.brain import Brain
@@ -131,7 +133,16 @@ def _voice_loop(turns: _Turns, memory) -> None:
               flush=True)
         return
 
+    # At login the daemon can beat PipeWire to the punch — the service starts
+    # in parallel with the sound stack. Retry before declaring the mic absent,
+    # so "voice off" means the machine truly has no microphone, not that we
+    # looked three seconds too early.
     problem = audio_probe()
+    for _ in range(5):
+        if not problem:
+            break
+        time.sleep(6)
+        problem = audio_probe()
     if problem:
         print(f"(voice off: {problem})", flush=True)
         return
@@ -211,6 +222,9 @@ def run() -> int:
     if sock_path.exists():
         sock_path.unlink()          # clear a stale socket from a previous run
     sock_path.parent.mkdir(parents=True, exist_ok=True)
+    # So `mantrin stop` can reach a daemon that was started by hand.
+    pid_path = sock_path.parent / "jarvis.pid"
+    pid_path.write_text(str(os.getpid()))
 
     print("Jarvis daemon starting — loading brain + connections…", flush=True)
     memory = MemoryStore(config.DB_FILE, embedder=LocalEmbedder())
@@ -253,10 +267,12 @@ def run() -> int:
             server.close()
             if sock_path.exists():
                 sock_path.unlink()
+            pid_path.unlink(missing_ok=True)
             for client in mcp_clients:
                 client.close()
         except KeyboardInterrupt:
             print("(cleanup interrupted — exiting now)", flush=True)
+            pid_path.unlink(missing_ok=True)
     return 0
 
 

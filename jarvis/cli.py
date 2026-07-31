@@ -252,6 +252,14 @@ def main(argv: list[str] | None = None) -> int:
                    help="a short daily brief from memory + open loops")
     sub.add_parser("daemon", parents=[flags],
                    help="run the always-on daemon in the foreground")
+    sub.add_parser("install", parents=[flags],
+                   help="start Mantrin at every login (systemd user service)")
+    sub.add_parser("uninstall", parents=[flags], help="remove the login service")
+    sub.add_parser("start", parents=[flags], help="start Mantrin in the background")
+    sub.add_parser("stop", parents=[flags], help="stop the running Mantrin")
+    sub.add_parser("restart", parents=[flags], help="restart Mantrin (picks up new code)")
+    sub.add_parser("status", parents=[flags], help="is Mantrin running, and what does it know")
+    sub.add_parser("logs", parents=[flags], help="follow what Mantrin is doing")
     args = parser.parse_args(argv)
 
     # Per-run overrides go into the environment, not onto the config module.
@@ -296,6 +304,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "daemon":
         from .daemon import run
         return run()
+    if args.cmd in ("install", "uninstall", "start", "stop", "restart", "status", "logs"):
+        from . import service
+        return getattr(service, args.cmd)()
 
     # The daemon is where Mantrin actually lives: it holds the microphone and the
     # MCP connections. Anything here is a thin client onto that one brain — which
