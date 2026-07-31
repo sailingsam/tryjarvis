@@ -17,3 +17,6 @@ whatsapp-bridge/*.txt
 
 # Secrets
 .env
+
+# setuptools metadata from `pip install -e .` — regenerated on every build
+*.egg-info/
