@@ -95,12 +95,14 @@ a{color:inherit;text-decoration:none}
 .nav .mono{color:var(--muted)}
 @media(max-width:600px){.nav .mono{display:none}}
 
-/* hero: asymmetric header row, then the live stage */
-.hero{position:relative;overflow:clip;padding-block:clamp(1.8rem,4vh,3rem) clamp(2rem,4vh,3rem)}
+/* hero: asymmetric header row, then the live stage — pinned to one full screen */
+.hero{position:relative;overflow:clip;padding-block:clamp(1.8rem,4vh,3rem) clamp(2rem,4vh,3rem);
+  min-height:calc(100svh - 3.8rem);display:flex;align-items:center}
+.hero>.wrap{width:100%}
 .hero .aura{width:min(46rem,105%);aspect-ratio:1;right:-6%;top:-16%}
 @media(max-width:899px){.hero .aura{right:auto;left:50%;translate:-50% 0;top:34%;width:min(30rem,120%)}}
 .head{display:grid;gap:clamp(1.8rem,4vw,3rem);align-items:center}
-@media(min-width:1000px){.head{grid-template-columns:.92fr 1.08fr}}
+@media(min-width:1000px){.head{grid-template-columns:.85fr 1.15fr}}
 .kicker{display:flex;align-items:center;gap:.55rem;color:var(--muted);margin-bottom:1rem}
 h1{font-size:var(--t-h1);letter-spacing:-0.02em}
 h1 em{font-style:normal;color:var(--amber-lg)}
@@ -120,13 +122,13 @@ button:active,.cta:active{transform:translateY(1px)}
 .ctarow{margin-top:1.25rem;display:flex;flex-wrap:wrap;align-items:center;gap:.85rem 1.1rem}
 @media(max-width:430px){.cta{width:100%;justify-content:center}}
 
-/* ---------- hero orchestration: one sentence out loud, and the day rearranges itself ---------- */
+/* ---------- hero orchestration: Mantrin speaks first, you approve in a word ---------- */
 .orch{position:relative;border:1px solid var(--hair);
   border-radius:18px;background:var(--surface);overflow:clip;
-  display:grid;grid-template-columns:minmax(0,1fr) minmax(16rem,1.05fr);
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(17rem,1.15fr);
   grid-template-areas:"you nodes" "core nodes";align-items:center;
   column-gap:clamp(.9rem,2vw,1.7rem);row-gap:1.1rem;
-  padding:clamp(1.2rem,2.5vw,1.8rem)}
+  padding:clamp(1.2rem,2.5vw,1.8rem);min-height:24rem}
 .orch::before{content:"";position:absolute;left:28%;top:64%;width:24rem;aspect-ratio:1;translate:-50% -50%;
   border-radius:50%;pointer-events:none;
   background:radial-gradient(circle, oklch(0.74 0.155 72 / .07), transparent 60%)}
@@ -140,18 +142,53 @@ button:active,.cta:active{transform:translateY(1px)}
 .beams g.hot .pulse{opacity:1;stroke-dasharray:16 200;stroke-dashoffset:18;animation:beamRun 1s var(--ease) both}
 @keyframes beamRun{to{stroke-dashoffset:-102}}
 
-.you{grid-area:you;max-width:16rem;justify-self:center}
+.you{grid-area:you;max-width:17.5rem;width:100%;justify-self:center}
+/* who's talking — make the speaker unmissable */
+.who{display:flex;align-items:center;gap:.35rem .5rem;flex-wrap:wrap}
+.who .wsub{flex-basis:100%;margin-left:1.3rem}
+.who .wdot{width:.8rem;height:.8rem;border-radius:50%;background:var(--amber);
+  box-shadow:0 0 0 4px var(--amber-sf);flex:none}
+.who b{color:var(--ink);font-weight:600}
+.who .wsub{color:var(--muted)}
+.who.you .wdot{background:transparent;border:1.5px solid var(--amber);box-shadow:none}
+.stamp{color:var(--amber-dp)}
 .wv2{display:flex;align-items:center;gap:.22rem;height:1.6rem;margin-top:.65rem;opacity:.25;transition:opacity .35s}
 .orch.talking .wv2{opacity:1}
 .wv2 i{width:.18rem;border-radius:99px;background:var(--amber);height:var(--h,40%)}
 .orch.talking .wv2 i{animation:speak 1.05s ease-in-out infinite;animation-delay:var(--d,0ms)}
-.osaid{font-family:'Spectral',Georgia,serif;font-size:clamp(1.05rem,.98rem + 0.45vw,1.32rem);
-  color:var(--ink);line-height:1.45;margin-top:.55rem;min-height:5.6rem;max-width:22ch}
+.osaid{font-family:'Spectral',Georgia,serif;font-size:clamp(1rem,.96rem + 0.3vw,1.2rem);
+  color:var(--ink);line-height:1.5;margin-top:.55rem;max-width:26ch}
 .osaid .w{display:inline-block}
 .js .osaid .w{animation:wIn .5s var(--ease) both;animation-delay:var(--d,0ms)}
 @keyframes wIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+/* your side, up top — short lines, so a short reserve */
+.yousaid{min-height:3.5rem}
+/* Mantrin's words sit right below its core, inside the column */
+.msaid{width:100%;max-width:none;text-align:center;min-height:8.3rem;margin-top:.7rem;
+  display:flex;align-items:flex-start;justify-content:center}
+.msaid .in{display:block}
+/* while Mantrin speaks, the core ripples continuously */
+.orch.mtalk .ripple{animation:ripple 1.5s var(--ease) infinite}
+.orch.mtalk .ripple:nth-child(2){animation-delay:.35s}
+.oreply .rb{font-size:.88rem;color:var(--ink);background:var(--bg);border:1px solid var(--line);
+  border-radius:14px 14px 4px 14px;padding:.32rem .8rem;max-width:100%}
+.js .oreply .rb{animation:wIn .5s var(--ease) both}
 
-.ocore{grid-area:core;display:grid;justify-items:center;justify-self:center;width:13rem;z-index:2}
+/* the sound toggle — browsers block autoplay, so the voice asks for one click */
+.viz{position:relative}
+.hear{position:absolute;top:.85rem;right:.85rem;z-index:3;cursor:pointer;
+  display:inline-flex;align-items:center;gap:.4rem;font-family:'Spline Sans Mono',ui-monospace,monospace;
+  font-size:.72rem;letter-spacing:.01em;color:var(--muted);background:var(--bg);
+  border:1px solid var(--line);border-radius:99px;padding:.34rem .75rem;
+  transition:color .3s,border-color .3s,box-shadow .3s}
+.hear svg{width:.85rem;height:.85rem;fill:none;stroke:currentColor;stroke-width:1.6;
+  stroke-linecap:round;stroke-linejoin:round;flex:none}
+.hear:hover{border-color:var(--amber);color:var(--amber-dp)}
+.hear[aria-pressed="true"]{color:var(--amber-dp);border-color:var(--amber);
+  box-shadow:0 0 0 4px var(--amber-sf)}
+.hear:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+.ocore{grid-area:core;display:grid;justify-items:center;justify-self:center;width:100%;max-width:17.5rem;z-index:2}
 .core2{position:relative;width:4.2rem;height:4.2rem;border-radius:50%;background:var(--bg);border:1px solid var(--line);
   display:grid;place-items:center;box-shadow:0 0 0 8px oklch(0.74 0.155 72 / .05)}
 .core2 .heart{width:1.05rem;height:1.05rem;border-radius:50%;background:var(--amber);
@@ -164,19 +201,11 @@ button:active,.cta:active{transform:translateY(1px)}
 @keyframes ripple{from{transform:translate(-50%,-50%) scale(1);opacity:.6}
   to{transform:translate(-50%,-50%) scale(3.4);opacity:0}}
 .clbl{margin-top:.55rem;color:var(--ink);font-weight:600;font-size:.85rem}
-.memlbl{margin-top:.95rem;color:var(--muted);opacity:0;transition:opacity .4s var(--ease)}
-.orch.recall .memlbl{opacity:1}
-.mems{list-style:none;display:grid;gap:.42rem;justify-items:center;margin-top:.5rem;min-height:4.4rem}
-.mems li{display:inline-flex;align-items:center;gap:.45rem;font-size:.82rem;color:var(--body);
-  background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:.3rem .75rem;
-  text-align:center;max-width:100%}
-.mems li::before{content:"";width:.3rem;height:.3rem;border-radius:50%;background:var(--amber);flex:none}
-.js .mems li{animation:memIn .5s var(--ease) both;animation-delay:var(--d,0ms)}
-@keyframes memIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.clbl-sub{margin-top:.3rem;color:var(--muted)}
 
-.onodes{grid-area:nodes;list-style:none;display:grid;gap:.55rem;width:100%;max-width:22rem;justify-self:end}
-.onode{display:grid;grid-template-columns:auto 1fr;gap:.75rem;align-items:center;
-  border:1px solid transparent;border-radius:12px;padding:.5rem .65rem;
+.onodes{grid-area:nodes;list-style:none;display:grid;gap:.55rem;width:100%;max-width:23rem;justify-self:end}
+.onode{display:grid;grid-template-columns:auto 1fr;gap:.7rem;align-items:center;
+  border:1px solid transparent;border-radius:12px;padding:.5rem .55rem;
   transition:background .35s,border-color .35s}
 .onode.on{background:var(--bg);border-color:var(--line)}
 .npip{width:2.1rem;height:2.1rem;border-radius:50%;background:var(--bg);border:1px solid var(--line);
@@ -198,52 +227,21 @@ button:active,.cta:active{transform:translateY(1px)}
 
 @media(max-width:639px){
   .orch{grid-template-columns:1fr;grid-template-areas:"you" "core" "nodes";justify-items:center;
-    gap:1.3rem;padding:1.2rem 1rem 1.4rem}
+    gap:1.3rem;padding:1.2rem 1rem 1.4rem;min-height:0}
   .orch::before{left:50%;top:30%}
-  .you{justify-self:center;max-width:24rem;text-align:center;display:grid;justify-items:center}
-  .osaid{min-height:0}
+  .you{justify-self:stretch;max-width:24rem;margin-inline:auto}
+  .osaid{min-height:4.8rem;max-width:none}
   .onodes{justify-self:center;max-width:24rem}
   .beams{display:none}
 }
 
-/* ---------- the live stage: say -> remember -> done ---------- */
-.stage{margin-top:clamp(1.4rem,3vh,2rem)}
-.lane{display:grid;gap:.8rem;align-items:stretch;
-  border:1px solid var(--hair);border-radius:18px;background:var(--surface);
-  padding:clamp(1rem,2.4vw,1.5rem)}
-@media(min-width:820px){.lane{grid-template-columns:1fr auto 1fr auto 1fr;gap:0;align-items:center}}
-.zone{min-width:0;padding:clamp(.5rem,1.5vw,1rem) clamp(.6rem,2vw,1.4rem);
-  transition:opacity .45s var(--ease),transform .45s var(--ease)}
-.swap .zone{opacity:0;transform:translateY(8px)}
+/* shared bits: zone labels, the tick, the example dots */
 .ztitle{display:block;color:var(--muted);margin-bottom:.6rem}
-.said{font-family:'Spectral',Georgia,serif;font-size:clamp(1.05rem,1rem + 0.4vw,1.25rem);
-  color:var(--ink);font-weight:400;line-height:1.45;max-width:24ch}
-.chips{list-style:none;display:grid;gap:.45rem}
-.chips li{display:flex;align-items:center;gap:.5rem;font-size:.94rem;color:var(--ink);
-  background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:.4rem .65rem;
-  transition:opacity .4s var(--ease) var(--d,0ms),transform .4s var(--ease) var(--d,0ms)}
-.chips li::before{content:"";width:.35rem;height:.35rem;border-radius:50%;background:var(--amber);flex:none}
-.swap .chips li{opacity:0;transform:translateY(6px)}
-.did{display:flex;gap:.55rem;align-items:flex-start;color:var(--ink);font-size:.99rem;line-height:1.5}
 .tick{flex:none;width:1.15rem;height:1.15rem;border-radius:50%;background:var(--amber);
   display:grid;place-items:center;margin-top:.15rem}
 .tick svg{width:.65rem;height:.65rem;stroke:oklch(0.99 0 0);stroke-width:2.6;fill:none;
   stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:14;stroke-dashoffset:0}
-.playing .tick svg{animation:draw .5s var(--ease) .9s}
 @keyframes draw{from{stroke-dashoffset:14}to{stroke-dashoffset:0}}
-
-.conn{position:relative;height:1px;background:var(--line);min-height:1px;margin-inline:.4rem}
-@media(max-width:819px){.conn{height:1.6rem;width:1px;background:var(--line);margin:0 auto}}
-@media(min-width:820px){.conn{width:clamp(1.5rem,4vw,3.5rem)}}
-.conn .pulse{position:absolute;top:50%;left:0;width:.42rem;height:.42rem;border-radius:50%;
-  background:var(--amber);transform:translate(-50%,-50%);opacity:0;box-shadow:0 0 0 4px var(--amber-sf)}
-.playing .conn:nth-of-type(1) .pulse{animation:travel 1s var(--ease) .15s}
-.playing .conn:nth-of-type(2) .pulse{animation:travel 1s var(--ease) .95s}
-@keyframes travel{0%{left:0;opacity:0}18%{opacity:1}82%{opacity:1}100%{left:100%;opacity:0}}
-@media(max-width:819px){
-  .conn .pulse{top:0;left:50%}
-  @keyframes travel{0%{top:0;opacity:0}18%{opacity:1}82%{opacity:1}100%{top:100%;opacity:0}}
-}
 .ticks{display:flex;gap:.45rem;justify-content:center;margin-top:.8rem}
 .ticks button{all:unset;cursor:pointer;width:1.6rem;height:.25rem;border-radius:99px;
   background:var(--line);transition:background .35s}
@@ -449,27 +447,28 @@ footer{position:relative;border-top:1px solid var(--hair);overflow:hidden;
         </div>
       </div>
 
-    </div>
 
-    <!-- the product, working: you say one thing, Mantrin recalls what it knows, five services get handled -->
-    <figure class="orch" id="orch" role="img" aria-label="One sentence out loud — Mantrin recalls what it already knows about you, then your calendar, messages, home, music and weather are handled, each with a confirmation.">
+      <div class="viz">
+    <!-- the product, working: Mantrin notices first, proposes the fix, you approve in a word, services get handled -->
+    <figure class="orch" id="orch" role="img" aria-label="Mantrin speaks first: it notices something slipping, proposes the fix out loud, you approve in a word, and your calendar, messages, home, music and weather are handled, each with a confirmation.">
       <svg class="beams" id="beams" aria-hidden="true"></svg>
 
       <div class="ozone you" aria-hidden="true">
-        <span class="ztitle mono">you, out loud</span>
+        <span class="who you"><i class="wdot"></i><b>you</b>
+          <span class="wsub mono">out loud · <span class="stamp" id="o-stamp">thursday, 9:40am</span></span></span>
         <div class="wv2">
           <i style="--h:36%;--d:0ms"></i><i style="--h:78%;--d:90ms"></i><i style="--h:52%;--d:180ms"></i>
           <i style="--h:100%;--d:270ms"></i><i style="--h:64%;--d:360ms"></i><i style="--h:88%;--d:450ms"></i>
           <i style="--h:42%;--d:540ms"></i>
         </div>
-        <p class="osaid" id="o-said"></p>
+        <p class="osaid yousaid" id="y-said"></p>
       </div>
 
       <div class="ozone ocore" aria-hidden="true">
         <span class="core2"><span class="ripple"></span><span class="ripple"></span><span class="heart"></span></span>
         <span class="clbl">Mantrin</span>
-        <span class="memlbl mono">already knows</span>
-        <ul class="mems" id="o-mems"></ul>
+        <span class="clbl-sub mono" id="o-msub">noticed, so it spoke</span>
+        <p class="osaid msaid" id="m-said"></p>
       </div>
 
       <ul class="ozone onodes" aria-hidden="true">
@@ -495,7 +494,13 @@ footer{position:relative;border-top:1px solid var(--hair);overflow:hidden;
         </li>
       </ul>
     </figure>
-    <div class="ticks" id="o-ticks" role="tablist" aria-label="Examples"></div>
+    <button type="button" class="hear" id="o-hear" aria-pressed="false" aria-label="Play Mantrin's voice">
+      <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 8v4h3l4 3.5v-11L6.5 8h-3z"/><path d="M13.5 7.5a3.5 3.5 0 0 1 0 5M15.5 5.5a6.2 6.2 0 0 1 0 9"/></svg>
+      <span>hear it</span>
+    </button>
+    <div class="ticks" id="o-ticks" role="tablist" aria-label="Scenes"></div>
+      </div>
+    </div>
   </div>
 </header>
 
@@ -516,28 +521,6 @@ footer{position:relative;border-top:1px solid var(--hair);overflow:hidden;
 <section class="cap">
   <div class="wrap">
     <h2 class="rv">Say it once. It turns into something that gets done.</h2>
-    <div class="stage rv" id="stage">
-      <div class="lane playing" id="lane">
-        <div class="zone">
-          <span class="ztitle mono">you said</span>
-          <p class="said" id="z-said">“I'm vegetarian, and Tanay is my co-founder.”</p>
-        </div>
-        <div class="conn"><span class="pulse"></span></div>
-        <div class="zone">
-          <span class="ztitle mono">mantrin remembers</span>
-          <ul class="chips" id="z-chips">
-            <li style="--d:0ms">You're vegetarian</li>
-            <li style="--d:110ms">Tanay, co-founder</li>
-          </ul>
-        </div>
-        <div class="conn"><span class="pulse"></span></div>
-        <div class="zone">
-          <span class="ztitle mono">so later, it just</span>
-          <p class="did"><span class="tick"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span><span id="z-did">Booked dinner for two. Veg-friendly kitchen, 8pm, Tanay invited.</span></p>
-        </div>
-      </div>
-      <div class="ticks" id="ticks" role="tablist" aria-label="Examples"></div>
-    </div>
     <div class="list" id="caplist">
       <div class="thread" aria-hidden="true"><i id="threadfill"></i></div>
       <div class="row rv">
@@ -585,7 +568,7 @@ footer{position:relative;border-top:1px solid var(--hair);overflow:hidden;
         <i style="--h:68%;--d:810ms"></i><i style="--h:26%;--d:900ms"></i>
       </div>
       <span class="mono heardlbl">mantrin, unprompted</span>
-      <p class="spoken">“You told Tanay the deck lands before Friday. It's Thursday and it's still in drafts. Want me to send it?”</p>
+      <p class="spoken">“You told Tom the deck lands before Friday. It's Thursday and it's still in drafts. Want me to send it?”</p>
       <p class="after">Thursday, 9:40am. You hadn't thought about it yet.</p>
     </div>
 
@@ -705,10 +688,11 @@ footer{position:relative;border-top:1px solid var(--hair);overflow:hidden;
     start();
   })();
 
-  /* ---- hero orchestration: one sentence, a recall, then five services handled ---- */
+  /* ---- hero orchestration: Mantrin notices, speaks, you approve, it acts ---- */
   (function(){
     var fig=document.getElementById('orch'); if(!fig) return;
-    var saidEl=document.getElementById('o-said'), memsEl=document.getElementById('o-mems'),
+    var ySaid=document.getElementById('y-said'), mSaid=document.getElementById('m-said'),
+        stampEl=document.getElementById('o-stamp'), msubEl=document.getElementById('o-msub'),
         svg=document.getElementById('beams'), core=fig.querySelector('.core2'),
         ticks=document.getElementById('o-ticks'), nodes={}, gs={}, timers=[], i=0, cycle;
     [].forEach.call(fig.querySelectorAll('.onode'),function(n){ nodes[n.getAttribute('data-k')]=n });
@@ -743,31 +727,70 @@ footer{position:relative;border-top:1px solid var(--hair);overflow:hidden;
       });
     }
 
+    /* two scenes Mantrin opens, two scenes you open — the voice is always Mantrin's line */
     var SC=[
-      { said:'“Heading home — twenty minutes out.”',
-        mems:['Long days end with quiet piano','Mira'+"’"+'s waiting on dinner news'],
-        acts:[['home','Lights on, warmed up.'],
-              ['music','Quiet piano from the doorway.'],
-              ['messages','Mira knows: twenty minutes.']] },
-      { said:'“Find an evening with Tanay next week.”',
-        mems:['You'+"’"+'re vegetarian','Tanay, co-founder. Tuesdays work.'],
-        acts:[['calendar','Tuesday 8pm, held for two.'],
-              ['messages','Tanay'+"’"+'s invited — he'+"’"+'s in.']] },
-      { said:'“What am I walking into tomorrow?”',
-        mems:['The deck was promised by Friday','You leave at 8:40'],
-        acts:[['calendar','Three things. First at nine.'],
-              ['weather','Rain by eight — leave earlier.'],
-              ['messages','Tanay'+"’"+'s reply, flagged for the car.']] }
+      { who:'mantrin', stamp:'thursday, 9:40am',
+        said:'“You told Tom the deck lands Friday. It'+"’"+'s still in drafts — want me to send it?”',
+        reply:'go ahead.',
+        acts:[['messages','Deck sent to Tom.'],
+              ['calendar','Friday loop — closed.']] },
+      { who:'you', stamp:'sunday, 6:12pm',
+        said:'“My sister Mira is flying in next week.”',
+        reply:'Saturday, then — I'+"’"+'ll take care of it.',
+        acts:[['calendar','Saturday evening — held.'],
+              ['messages','Mira'+"’"+'s been told.'],
+              ['weather','Her landing day: clear.']] },
+      { who:'mantrin', stamp:'saturday, 12:14am',
+        said:'“It'+"’"+'s past midnight. Wind the house down?”',
+        reply:'please.',
+        acts:[['home','Locked. Lights fading.'],
+              ['music','Slow piano, fading out.']] },
+      { who:'you', stamp:'monday, 8:05am',
+        said:'“Find an evening with Tom next week.”',
+        reply:'Tuesday works for you both — booking it.',
+        acts:[['calendar','Tuesday 8pm, held.'],
+              ['messages','Tom'+"’"+'s in. Table booked.']] }
     ];
+    /* each side owns a slot: you up top, Mantrin's words above its core */
+    function lines(s){
+      var m = s.who==='mantrin';
+      return { h: m ? '“'+s.reply+'”' : s.said,
+               m: m ? s.said : '“'+s.reply+'”' };
+    }
+    function setWho(s){
+      stampEl.textContent = s.stamp;
+      msubEl.textContent = s.who==='mantrin' ? 'noticed, so it spoke' : 'heard, so it answered';
+    }
+    function spanify(txt,step){ return txt.split(' ').map(function(w,k){
+      return '<span class="w" style="--d:'+(260+k*step)+'ms">'+w+'</span>' }).join(' ') }
     var TICK='<span class="tick"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"/></svg></span>';
+
+    /* two voices, pre-rendered: Mantrin's and yours. Browsers block autoplay with
+       sound, so it stays quiet until the hear-it button is pressed once. */
+    var MAUD=[5440,2800,3920,2720], HAUD=[1040,3320,1520,3160],
+        sound=false, voice=new Audio(), hearBtn=document.getElementById('o-hear');
+    voice.preload='auto';
+    function speak(role,n){ if(!sound) return;
+      voice.src='audio/'+role+'-'+(n+1)+'.wav';
+      voice.currentTime=0;
+      var p=voice.play(); if(p&&p.catch) p.catch(function(){});
+    }
+    hearBtn.addEventListener('click',function(){
+      sound=!sound;
+      hearBtn.setAttribute('aria-pressed', sound?'true':'false');
+      hearBtn.querySelector('span').textContent=sound?'sound on':'hear it';
+      if(!sound){ voice.pause(); return }
+      if(reduce){ speak('mantrin',i) } else { play(i); restart() }   // replay the scene, voiced
+    });
 
     function at(ms,fn){ timers.push(setTimeout(fn,ms)) }
     function clearAll(){
       timers.forEach(clearTimeout); timers=[];
-      fig.classList.remove('talking','beat','recall');
+      voice.pause();
+      fig.classList.remove('talking','beat','mtalk');
       Object.keys(nodes).forEach(function(k){ nodes[k].classList.remove('on');
         nodes[k].querySelector('.nres').innerHTML=''; gs[k].classList.remove('hot') });
-      memsEl.innerHTML='';
+      ySaid.innerHTML=''; mSaid.innerHTML='';
     }
     function mark(n){ [].forEach.call(ticks.children,function(b,k){
       b.setAttribute('aria-current', k===n?'true':'false') }) }
@@ -778,41 +801,61 @@ footer{position:relative;border-top:1px solid var(--hair);overflow:hidden;
     }
     /* the whole scene at rest, for reduced motion */
     function paint(n){
-      i=n; clearAll(); var s=SC[n];
-      saidEl.textContent=s.said;
-      fig.classList.add('recall');
-      memsEl.innerHTML=s.mems.map(function(m){ return '<li>'+m+'</li>' }).join('');
+      i=n; clearAll(); var s=SC[n], L=lines(s);
+      setWho(s);
+      ySaid.textContent=L.h;
+      mSaid.innerHTML='<span class="in">'+L.m+'</span>';
       s.acts.forEach(function(a){ nodes[a[0]].classList.add('on');
         nodes[a[0]].querySelector('.nres').innerHTML=TICK+'<span>'+a[1]+'</span>' });
       mark(n);
     }
     function play(n){
       i=n; if(reduce){ paint(n); return }
-      clearAll(); var s=SC[n];
+      clearAll(); var s=SC[n], L=lines(s);
       fig.classList.add('swapping');
       at(380,function(){
         fig.classList.remove('swapping');
-        saidEl.innerHTML=s.said.split(' ').map(function(w,k){
-          return '<span class="w" style="--d:'+(200+k*80)+'ms">'+w+'</span>' }).join(' ');
-        fig.classList.add('talking');                                     // you speak
-        var tSay=480+s.said.split(' ').length*80+380;
-        at(tSay,function(){ fig.classList.remove('talking');              // it lands in the brain
-          fig.classList.add('beat','recall');
-          memsEl.innerHTML=s.mems.map(function(m,k){
-            return '<li style="--d:'+(k*170)+'ms">'+m+'</li>' }).join('');
+        setWho(s);
+        var mFirst=s.who==='mantrin',
+            first = mFirst ? L.m : L.h,
+            second= mFirst ? L.h : L.m,
+            fWords=first.split(' ').length, sWords=second.split(' ').length,
+            fDur = mFirst ? MAUD[n] : HAUD[n],
+            sDur = mFirst ? HAUD[n] : MAUD[n],
+            step=sound ? Math.max(85,Math.round((fDur-1200)/fWords)) : 85; // pace text to the voice
+        if(mFirst){                                                       // Mantrin opens, below its core
+          mSaid.innerHTML='<span class="in">'+spanify(first,step)+'</span>';
+          fig.classList.add('mtalk'); speak('mantrin',n);
+        } else {                                                          // you open, up top
+          ySaid.innerHTML=spanify(first,step);
+          fig.classList.add('talking'); speak('human',n);
+        }
+        var tSay=sound ? fDur+450 : 520+fWords*85+420;
+        at(tSay,function(){
+          fig.classList.remove('talking','mtalk');
+          if(mFirst){                                                     // you answer in a word
+            ySaid.innerHTML=spanify(second,85);
+            fig.classList.add('talking'); speak('human',n);
+            at(sound?sDur+250:900,function(){ fig.classList.remove('talking') });
+          } else {                                                        // Mantrin answers
+            mSaid.innerHTML='<span class="in">'+spanify(second,85)+'</span>';
+            fig.classList.add('mtalk'); speak('mantrin',n);
+          }
         });
-        var tAct=tSay+1050;                                               // then out into the world
-        s.acts.forEach(function(a,j){ fire(a[0],a[1],tAct+j*300) });
-        at(tAct+1700,function(){ fig.classList.remove('beat') });
+        var tAct=tSay+(sound ? sDur+450 : 600+sWords*85+400);
+        if(!mFirst) at(tAct-200,function(){ fig.classList.remove('mtalk') });
+        at(tAct-150,function(){ fig.classList.add('beat') });
+        s.acts.forEach(function(a,j){ fire(a[0],a[1],tAct+j*380) });
+        at(tAct+1900,function(){ fig.classList.remove('beat'); draw() });
       });
       mark(n);
     }
     function restart(){ clearInterval(cycle);
-      if(!reduce) cycle=setInterval(function(){ play((i+1)%SC.length) },9500) }
+      if(!reduce) cycle=setInterval(function(){ play((i+1)%SC.length) }, sound?12000:10000) }
 
     SC.forEach(function(s,n){
       var b=document.createElement('button');
-      b.setAttribute('role','tab'); b.setAttribute('aria-label','Example '+(n+1));
+      b.setAttribute('role','tab'); b.setAttribute('aria-label','Scene '+(n+1));
       b.onclick=function(){ play(n); restart() };
       ticks.appendChild(b);
     });
@@ -825,56 +868,6 @@ footer{position:relative;border-top:1px solid var(--hair);overflow:hidden;
       if(document.hidden){ clearInterval(cycle); clearAll() }
       else if(!reduce){ play(i); restart() } });
   })();
-
-  /* ---- the live stage ---- */
-  var SCENES=[
-    { said:'“I’m vegetarian, and Tanay is my co-founder.”',
-      chips:["You're vegetarian","Tanay, co-founder"],
-      did:'Booked dinner for two. Veg-friendly kitchen, 8pm, Tanay invited.' },
-    { said:'“Remind me to send Tanay the deck before Friday.”',
-      chips:["Open loop: send the deck","Due Friday"],
-      did:'Nudged you Thursday morning, then sent it once you said go.' },
-    { said:'“My sister Mira is flying in next week.”',
-      chips:["Mira, sister","In town Mar 14 to 17"],
-      did:'Held Saturday evening free and found a table near her hotel.' }
-  ];
-  var lane=document.getElementById('lane'), said=document.getElementById('z-said'),
-      chips=document.getElementById('z-chips'), did=document.getElementById('z-did'),
-      ticks=document.getElementById('ticks'), i=0, timer;
-
-  SCENES.forEach(function(s,n){
-    var b=document.createElement('button');
-    b.setAttribute('role','tab'); b.setAttribute('aria-label','Example '+(n+1));
-    b.setAttribute('aria-current', n===0?'true':'false');
-    b.onclick=function(){ go(n,true) };
-    ticks.appendChild(b);
-  });
-  function paint(n){
-    var s=SCENES[n];
-    said.textContent=s.said;
-    chips.innerHTML=s.chips.map(function(c,k){
-      return '<li style="--d:'+(k*110)+'ms">'+c+'</li>'; }).join('');
-    did.textContent=s.did;
-    [].forEach.call(ticks.children,function(b,k){ b.setAttribute('aria-current', k===n?'true':'false') });
-  }
-  function go(n,manual){
-    i=n;
-    if(reduce){ paint(i); return; }
-    lane.classList.add('swap'); lane.classList.remove('playing');
-    setTimeout(function(){
-      paint(i);
-      lane.classList.remove('swap');
-      void lane.offsetWidth;          // restart the pulse animations
-      lane.classList.add('playing');
-    },420);
-    if(manual) restart();
-  }
-  function restart(){ clearInterval(timer); timer=setInterval(function(){ go((i+1)%SCENES.length) },7000); }
-  if(!reduce) restart();
-
-  /* pause the loop when the tab is hidden or the stage is off screen */
-  document.addEventListener('visibilitychange',function(){
-    if(document.hidden) clearInterval(timer); else if(!reduce) restart(); });
 
   /* ---- reveals + the capability thread ---- */
   if(!reduce && 'IntersectionObserver' in window){
