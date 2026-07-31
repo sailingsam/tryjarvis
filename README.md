@@ -87,6 +87,13 @@ Adding a provider is one class with one method, plus a line in
 Memory is SQLite at `data/jarvis.db` — open it with `sqlite3` and you can read
 everything it knows about you. Delete the file to give it amnesia.
 
+## Integrations
+
+WhatsApp, Slack, X — and anything with an MCP server — plug into the same tool
+registry. Each is a block in `data/mcp.json` plus a key in the environment; a
+block whose key isn't set yet just waits. See [docs/integrations.md](docs/integrations.md)
+for what's wired and how to get each key.
+
 ## The daemon
 
 `mantrin` starts a background daemon on first run and then talks to it. The

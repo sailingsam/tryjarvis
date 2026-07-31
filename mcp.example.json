@@ -9,6 +9,14 @@
         "SLACK_MCP_XOXP_TOKEN": "${SLACK_XOXP_TOKEN}",
         "SLACK_MCP_ADD_MESSAGE_TOOL": "true"
       }
+    },
+    {
+      "name": "google-calendar",
+      "command": "npx",
+      "args": ["-y", "@cocal/google-calendar-mcp"],
+      "env": {
+        "GOOGLE_OAUTH_CREDENTIALS": "${GOOGLE_OAUTH_CREDENTIALS}"
+      }
     }
   ]
 }
