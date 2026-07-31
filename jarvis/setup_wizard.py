@@ -73,17 +73,31 @@ def _collect_keys(specs: list, saved: dict) -> dict:
 
 
 def run() -> int:
+    try:
+        return _run()
+    except (KeyboardInterrupt, EOFError):
+        print("\nSetup cancelled — nothing saved.")
+        return 1
+
+
+def _run() -> int:
     settings = config.load_settings()
     print("Mantrin setup — pick whose ears and whose voice.")
     print("Everything here is swappable later; nothing is locked in.")
 
+    keys = settings.get("keys") or {}
+
+    # The key is asked for the moment a choice needs one — pick Grok, hand over
+    # the key, done. Deferring it to the end read as "it never asked me".
     stt = _choose("Speech to text (how Mantrin hears you)", registry.STT,
                   settings.get("stt") or registry.DEFAULT_STT)
+    keys = _collect_keys([registry.STT[stt]], keys)
+
     tts = _choose("Text to speech (how Mantrin answers)", registry.TTS,
                   settings.get("tts") or registry.DEFAULT_TTS)
+    keys = _collect_keys([registry.TTS[tts]], keys)
 
-    chosen = [registry.STT[stt], registry.TTS[tts]]
-    settings["keys"] = _collect_keys(chosen, settings.get("keys") or {})
+    settings["keys"] = keys
     settings["stt"], settings["tts"] = stt, tts
 
     if registry.STT[stt].mode != "text":
