@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 
 CONFIG_DIR = Path(
@@ -143,11 +144,21 @@ def load_mcp_servers() -> list[dict]:
     if not MCP_CONFIG_FILE.exists():
         return []
     data = json.loads(MCP_CONFIG_FILE.read_text() or "{}")
-    servers = data.get("servers", [])
-    # Expand ${VAR} in env values so secrets (tokens) can live in the
-    # environment instead of on disk in mcp.json.
-    for server in servers:
+    servers = []
+    for server in data.get("servers", []):
         env = server.get("env")
         if isinstance(env, dict):
-            server["env"] = {k: os.path.expandvars(str(v)) for k, v in env.items()}
+            # Expand ${VAR} in env values so secrets (tokens) can live in the
+            # environment instead of on disk in mcp.json.
+            env = {k: os.path.expandvars(str(v)) for k, v in env.items()}
+            # A ${VAR} that survived expansion means the secret isn't set yet.
+            # Skip the server rather than start it with a literal "${TOKEN}" —
+            # so every integration can sit in mcp.json ahead of its keys and
+            # simply light up the day they appear in the environment.
+            missing = sorted({m for v in env.values() for m in re.findall(r"\$\{(\w+)\}", v)})
+            if missing:
+                print(f"(MCP '{server.get('name', '?')}' off — set {', '.join(missing)} to enable)", flush=True)
+                continue
+            server["env"] = env
+        servers.append(server)
     return servers
