@@ -77,6 +77,7 @@ class VoiceIO:
         seed = audio.calibrate_noise_floor(self._frames)
         self._endpointer = audio.Endpointer(min_peak=seed)
         self._listen_until = 0.0        # follow-up window; past = gate is armed
+        self.transcribed_seconds = 0.0  # audio actually sent for transcription
         self.turn = timings.Turn(enabled=show_timings)
 
         phrase = getattr(self._gate, "_phrase", "")
@@ -136,6 +137,10 @@ class VoiceIO:
             # turn is its trailing-silence window — fixed by design, but shown
             # so the total reads honestly.
             self.turn.mark("vad", self._endpointer.silence_ms)
+            # Running total of audio actually handed to the recogniser — with
+            # hosted ears this is exactly what gets billed, and being able to
+            # see it is how the user trusts that the gate holds.
+            self.transcribed_seconds += len(utterance) / (audio.SAMPLE_RATE * audio.SAMPLE_WIDTH)
 
             with self.turn.stage("stt"):
                 hints = self._hints() if self._hints else None
@@ -255,6 +260,10 @@ class VoiceIO:
     # --------------------------------------------------------------- close
 
     def close(self) -> None:
+        if self.transcribed_seconds:
+            m, s = divmod(int(self.transcribed_seconds), 60)
+            spoken = f"{m}m {s}s" if m else f"{s}s"
+            print(f"(speech transcribed this session: {spoken} of audio)", flush=True)
         self._stream.close()
 
 

@@ -244,12 +244,19 @@ def run() -> int:
     except KeyboardInterrupt:
         print("\nShutting down…", flush=True)
     finally:
-        turns.stop()
-        server.close()
-        if sock_path.exists():
-            sock_path.unlink()
-        for client in mcp_clients:
-            client.close()
+        # An impatient second Ctrl+C lands here, mid-cleanup — closing the MCP
+        # clients waits on their threads for a few seconds. Finish quietly
+        # rather than dying with a traceback over a shutdown that was already
+        # underway.
+        try:
+            turns.stop()
+            server.close()
+            if sock_path.exists():
+                sock_path.unlink()
+            for client in mcp_clients:
+                client.close()
+        except KeyboardInterrupt:
+            print("(cleanup interrupted — exiting now)", flush=True)
     return 0
 
 
