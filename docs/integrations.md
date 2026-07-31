@@ -22,3 +22,19 @@ itself. After adding a key, restart the daemon: `./.venv/bin/python -m jarvis da
    ```
 
 First use opens a browser once to sign in; the token is cached after that.
+
+## Gmail
+
+"Anything important in my inbox?", "reply that I'll confirm tonight."
+
+Reuses the same Google Cloud OAuth client as Calendar (enable the **Gmail API**
+on it too). This server keeps its credentials in `~/.gmail-mcp/`:
+
+```bash
+mkdir -p ~/.gmail-mcp
+cp /path/to/gcp-oauth.keys.json ~/.gmail-mcp/
+npx -y @gongrzhe/server-gmail-autoauth-mcp auth   # one-time browser sign-in
+```
+
+No environment variable needed after that. Until you run the auth step, the
+server fails to start and the daemon carries on without it.

@@ -17,6 +17,11 @@
       "env": {
         "GOOGLE_OAUTH_CREDENTIALS": "${GOOGLE_OAUTH_CREDENTIALS}"
       }
+    },
+    {
+      "name": "gmail",
+      "command": "npx",
+      "args": ["-y", "@gongrzhe/server-gmail-autoauth-mcp"]
     }
   ]
 }
