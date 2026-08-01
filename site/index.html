@@ -32,9 +32,11 @@
 <meta name="theme-color" content="#ffffff" />
 <script>
 (function(){try{
-  var t=localStorage.getItem('theme');
-  if(!t) t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
-  document.documentElement.setAttribute('data-theme',t);
+  var m=localStorage.getItem('theme')||'system';
+  if(m!=='light'&&m!=='dark') m='system';
+  var dark = m==='dark' || (m==='system' && matchMedia('(prefers-color-scheme: dark)').matches);
+  document.documentElement.setAttribute('data-theme', dark?'dark':'light');
+  document.documentElement.setAttribute('data-thememode', m);
 }catch(e){}})();
 </script>
 <link rel="icon" type="image/svg+xml" href="logo.svg" />
@@ -130,8 +132,10 @@ a{color:inherit;text-decoration:none}
 .tgl:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 .tgl svg{width:1.05rem;height:1.05rem;fill:none;stroke:currentColor;stroke-width:1.5;
   stroke-linecap:round;stroke-linejoin:round}
-:root[data-theme="dark"] .i-moon{display:none}
-:root:not([data-theme="dark"]) .i-sun{display:none}
+.tgl svg{display:none}
+:root[data-thememode="system"] .i-sys{display:inline}
+:root[data-thememode="light"] .i-sun{display:inline}
+:root[data-thememode="dark"] .i-moon{display:inline}
 @media(max-width:640px){.anav{display:none}}
 .ghnav{display:inline-flex;align-items:center;gap:.45rem;color:var(--muted);transition:color .3s}
 .ghnav:hover{color:var(--ink)}
@@ -575,10 +579,11 @@ footer{position:relative;border-top:1px solid var(--hair);overflow:hidden;
   <span class="navlinks">
     <a class="anav mono" href="#plug">unplugs</a>
     <button type="button" class="tgl" id="themetgl" aria-label="Toggle dark mode">
+      <svg class="i-sys" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7"/><path d="M10 3a7 7 0 0 1 0 14z" fill="currentColor" stroke="none"/></svg>
       <svg class="i-moon" viewBox="0 0 20 20" aria-hidden="true"><path d="M16.5 12.2A7 7 0 0 1 7.8 3.5 7 7 0 1 0 16.5 12.2z"/></svg>
       <svg class="i-sun" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="3.6"/><path d="M10 1.8v1.9M10 16.3v1.9M1.8 10h1.9M16.3 10h1.9M4.2 4.2l1.35 1.35M14.45 14.45l1.35 1.35M15.8 4.2l-1.35 1.35M5.55 14.45L4.2 15.8"/></svg>
     </button>
-    <a class="ghnav mono" href="https://github.com/sailingsam/jarvis" target="_blank" rel="noopener" aria-label="Mantrin source on GitHub">
+    <a class="ghnav mono" href="https://github.com/sailingsam/tryjarvis" target="_blank" rel="noopener" aria-label="Mantrin source on GitHub">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.757-1.333-1.757-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
       <span>GitHub</span>
     </a>
@@ -779,17 +784,17 @@ footer{position:relative;border-top:1px solid var(--hair);overflow:hidden;
         <li><span class="dot"></span><span><b>Run it, fork it, read it.</b> Trust earned in the open.</span></li>
       </ul>
       <div class="ctarow rv">
-        <a class="cta ghbtn" href="https://github.com/sailingsam/jarvis" target="_blank" rel="noopener">
+        <a class="cta ghbtn" href="https://github.com/sailingsam/tryjarvis" target="_blank" rel="noopener">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.757-1.333-1.757-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
           Read the code <span class="arw" aria-hidden="true">→</span></a>
-        <span class="fine mono" id="gh-stars" style="margin:0">github.com/sailingsam/jarvis</span>
+        <span class="fine mono" id="gh-stars" style="margin:0">github.com/sailingsam/tryjarvis</span>
       </div>
     </div>
 
     <div class="clone rv" aria-hidden="true">
       <div class="clhead"><i></i><i></i><i></i><span class="mono">your machine</span></div>
       <pre class="mono"><span class="cmt"># your keys, your machine, your memory</span>
-$ git clone github.com/sailingsam/jarvis
+$ git clone github.com/sailingsam/tryjarvis
 $ mantrin
 
 <span class="ok">▸ memory</span>   data/jarvis.db — local, yours
@@ -828,7 +833,7 @@ $ mantrin
     <div class="footrow">
       <span class="mono">a chief of staff for everyone</span>
       <span class="footlinks">
-        <a class="sublink mono" href="https://github.com/sailingsam/jarvis" target="_blank" rel="noopener" aria-label="Mantrin source on GitHub">
+        <a class="sublink mono" href="https://github.com/sailingsam/tryjarvis" target="_blank" rel="noopener" aria-label="Mantrin source on GitHub">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.757-1.333-1.757-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
           GitHub</a>
         <a class="sublink mono" href="https://x.com/mantrinai" target="_blank" rel="noopener" aria-label="Mantrin on X">
@@ -1233,7 +1238,7 @@ $ mantrin
     if(reduce||!('IntersectionObserver' in window)) return;   // static version stands
     var L=[
       {t:'s', h:'<span class="cmt"># your keys, your machine, your memory</span>'},
-      {t:'t', x:'$ git clone github.com/sailingsam/jarvis'},
+      {t:'t', x:'$ git clone github.com/sailingsam/tryjarvis'},
       {t:'t', x:'$ mantrin'},
       {t:'s', h:''},
       {t:'p', h:'<span class="ok">▸ memory</span>   data/jarvis.db — local, yours'},
@@ -1329,27 +1334,29 @@ $ mantrin
     } else { restart() }
   })();
 
-  /* ---- the light switch ---- */
+  /* ---- the light switch: system → light → dark → system ---- */
   (function(){
     var tgl=document.getElementById('themetgl'); if(!tgl) return;
+    var root=document.documentElement, ORDER=['system','light','dark'],
+        mq=matchMedia('(prefers-color-scheme: dark)');
+    function apply(mode){
+      var dark = mode==='dark' || (mode==='system' && mq.matches);
+      root.setAttribute('data-theme', dark?'dark':'light');
+      root.setAttribute('data-thememode', mode);
+      try{localStorage.setItem('theme',mode)}catch(e){}
+      var mt=document.querySelector('meta[name="theme-color"]');
+      if(mt) mt.setAttribute('content', dark?'#171310':'#ffffff');
+      tgl.setAttribute('aria-label','Theme: '+mode);
+      tgl.title='theme: '+mode;
+    }
     tgl.addEventListener('click',function(){
-      var root=document.documentElement,
-          next=root.getAttribute('data-theme')==='dark'?'light':'dark';
-      root.setAttribute('data-theme',next);
-      try{localStorage.setItem('theme',next)}catch(e){}
-      var m=document.querySelector('meta[name="theme-color"]');
-      if(m) m.setAttribute('content', next==='dark'?'#171310':'#ffffff');
+      var cur=root.getAttribute('data-thememode')||'system';
+      apply(ORDER[(ORDER.indexOf(cur)+1)%ORDER.length]);
     });
-  })();
-
-  /* ---- star count, if github is feeling talkative ---- */
-  (function(){
-    var el=document.getElementById('gh-stars'); if(!el||!window.fetch) return;
-    fetch('https://api.github.com/repos/sailingsam/jarvis')
-      .then(function(r){ return r.ok ? r.json() : null })
-      .then(function(d){ if(d && typeof d.stargazers_count==='number')
-        el.textContent='★ '+d.stargazers_count+' · github.com/sailingsam/jarvis' })
-      .catch(function(){});
+    var onSys=function(){ if(root.getAttribute('data-thememode')==='system') apply('system') };
+    if(mq.addEventListener) mq.addEventListener('change',onSys);
+    else if(mq.addListener) mq.addListener(onSys);
+    apply(root.getAttribute('data-thememode')||'system');
   })();
 
 })();
