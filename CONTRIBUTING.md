@@ -55,8 +55,13 @@ Useful while developing:
 Good starting points are labelled
 [good first issue](https://github.com/sailingsam/tryjarvis/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
 
-## License
+## License and the CLA
 
 Mantrin is licensed [FSL-1.1-ALv2](LICENSE.md) — free to use, modify and
-self-host; not to resell. By contributing you agree your contribution is
-provided under the same terms (inbound = outbound).
+self-host; not to resell. Each release converts to Apache 2.0 two years on.
+
+That conversion, and the paid cloud that funds this work, both need one
+thing from contributors: a one-time [CLA](CLA.md). You keep ownership of
+your code; you grant the right to ship it under the Project's licenses. On
+your first PR a bot will ask — signing is replying with one sentence, once,
+and it covers everything after.
