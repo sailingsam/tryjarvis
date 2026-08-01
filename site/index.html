@@ -1321,7 +1321,7 @@ $ mantrin
         chip.textContent=next;
         chip.classList.remove('out'); chip.classList.add('in');
       },360);
-      setTimeout(function(){ r.classList.remove('hot') },1400);
+      setTimeout(function(){ r.classList.remove('hot') },1000);
     }
     function swap(){
       /* a random socket each time — never the same one twice in a row */
@@ -1331,8 +1331,8 @@ $ mantrin
     rows.forEach(function(r){ r.addEventListener('click',function(){
       swapRow(r); restart();                        // your click, your swap — timer steps aside
     }) });
-    function tick(){ swap(); timer=setTimeout(tick, 1500+Math.random()*1300) }
-    function restart(){ clearTimeout(timer); timer=setTimeout(tick, 2200) }
+    function tick(){ swap(); timer=setTimeout(tick, 950) }   // one lands, the next fires
+    function restart(){ clearTimeout(timer); timer=setTimeout(tick, 1200) }
     if('IntersectionObserver' in window){
       new IntersectionObserver(function(items){ items.forEach(function(it){
         if(it.isIntersecting){ restart() } else { clearTimeout(timer) } })
