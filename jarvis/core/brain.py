@@ -92,24 +92,36 @@ FROM OLDER CONVERSATIONS (recalled because they look relevant — the recent tur
 _EXTRACT_STATIC = """You maintain Jarvis's memory. Read the conversation and decide what changed. Be precise and conservative.
 
 Return ONLY this JSON object, nothing else:
-{"remember": [], "new_commitments": [], "completed": []}
+{"remember": [], "directives": [], "new_commitments": [], "completed": [], "outdated": []}
 
 - remember: NEW durable facts about the user not already known — a preference,
   a person, a goal, an ongoing project. Short third-person facts, e.g.
   "User is vegetarian", "Mridul and Atharv are the user's friends". Resolve
   relative dates to absolute ones, e.g. "User met Mridul on 2026-07-22" (NOT
   "today"). Skip one-off chit-chat, questions, and anything already known.
+- directives: NEW standing instructions the user gave the assistant about how
+  IT should behave from now on — reply style, tone, language, forms of
+  address, rules. E.g. "Keep replies short", "Answer in Hindi", "Call the
+  user boss". Only explicit, ongoing instructions aimed at the assistant;
+  the user's preferences about their own life are facts, and a one-off
+  request ("say that again slowly") is neither.
 - new_commitments: NEW open loops the user still needs to do, e.g.
   "Send Tanay the deck". Skip anything already listed as open or already done.
 - completed: ids (from the OPEN COMMITMENTS list below) the user now indicates
   are done. Resolve references like "both" or "that one" to the actual ids.
+- outdated: ids (from the ALREADY KNOWN list below) that this conversation
+  shows are no longer true — contradicted ("actually I eat fish now"),
+  replaced by a newer entry you are adding above, or explicitly revoked
+  ("stop calling me boss"). When a remember/directives entry updates an old
+  one, add the new AND list the old id here. Only ids from the list; when in
+  doubt whether something still holds, leave it alone.
 
-Today's date, the already-known facts and the open commitments follow below."""
+Today's date, everything already known and the open commitments follow below."""
 
 _EXTRACT_CONTEXT = """Today is {today}.
 
-ALREADY KNOWN FACTS (do NOT repeat these):
-{facts}
+ALREADY KNOWN (id — entry; do NOT repeat these, list an id under "outdated" if it no longer holds):
+{known}
 
 CURRENTLY OPEN COMMITMENTS (id — text):
 {commitments}"""
@@ -244,6 +256,10 @@ class Brain:
             today=_today(), facts=self._facts_block(query=query),
             commitments=self._commitments_block(),
         )
+        directives = self._memory.directives()
+        if directives:
+            block += "\n\nSTANDING INSTRUCTIONS FROM THE USER (always follow these):\n"
+            block += "\n".join(f"- {d.content}" for d in directives)
         past = self._past_block(query)
         return block + (_REPLY_PAST.format(past=past) if past else "")
 
@@ -384,25 +400,40 @@ class Brain:
 
     def _update_memory(self, history: list[dict]) -> None:
         """Second pass: a focused, cheap call that maintains the store. Runs
-        against the open-commitments list (with ids) so references like 'both'
-        resolve to real ids — the failure the single-pass design couldn't do.
-        Works on a snapshot of the history: it runs on the memory worker, and
-        the live window may already have moved on."""
+        against everything shown WITH ids, so references — 'both' for
+        commitments, a contradicted fact for supersession — resolve to real
+        rows. Works on a snapshot of the history: it runs on the memory
+        worker, and the live window may already have moved on."""
+        recent = _recent_user(history)
+        known = self._memory.recall(query=recent) + self._memory.directives()
         extract_context = _EXTRACT_CONTEXT.format(
             today=_today(),
-            facts=self._facts_block(query=_recent_user(history)),
+            known="\n".join(
+                f"- {m.id} — {m.content}"
+                + (" [standing instruction]" if m.kind == "directive" else "")
+                for m in known
+            ) or "(nothing yet)",
             commitments=self._commitments_block(),
         )
         raw = self._extractor.generate([_EXTRACT_STATIC, extract_context], history)
         updates = _parse_updates(raw)
 
+        # Retirements first, additions second: a replacement must never be
+        # dropped as a duplicate of the very row it is replacing.
+        known_ids = {m.id for m in known}
+        for fid in updates["outdated"]:
+            if fid in known_ids:        # only rows it was actually shown
+                self._memory.retire(fid)
         open_ids = {c.id for c in self._memory.open_commitments()}
         for fact in updates["remember"]:
             if not self._knows_fact(fact):
-                self._memory.add(content=fact, source=_recent_user(history))
+                self._memory.add(content=fact, source=recent)
+        for d in updates["directives"]:
+            if not self._has_directive(d):
+                self._memory.add(content=d, source=recent, kind="directive")
         for c in updates["new_commitments"]:
             if not self._has_open_commitment(c):
-                self._memory.add_commitment(content=c, source=_recent_user(history))
+                self._memory.add_commitment(content=c, source=recent)
         for cid in updates["completed"]:
             if cid in open_ids:
                 self._memory.complete_commitment(cid)
@@ -410,6 +441,10 @@ class Brain:
     def _knows_fact(self, content: str) -> bool:
         c = content.strip().lower()
         return any(m.content.strip().lower() == c for m in self._memory.recall())
+
+    def _has_directive(self, content: str) -> bool:
+        c = content.strip().lower()
+        return any(d.content.strip().lower() == c for d in self._memory.directives())
 
     def _has_open_commitment(self, content: str) -> bool:
         c = content.strip().lower()
@@ -439,7 +474,8 @@ def _clip(text: str, limit: int = 400) -> str:
 def _parse_updates(raw: str) -> dict:
     """Pull the three update lists out of the extractor's JSON. On any malformed
     output, change nothing — never guess at a mutation."""
-    empty = {"remember": [], "new_commitments": [], "completed": []}
+    empty = {"remember": [], "directives": [], "new_commitments": [],
+             "completed": [], "outdated": []}
     text = raw.strip()
     if text.startswith("```"):
         text = text.strip("`")
@@ -457,6 +493,8 @@ def _parse_updates(raw: str) -> dict:
 
     return {
         "remember": _strlist("remember"),
+        "directives": _strlist("directives"),
         "new_commitments": _strlist("new_commitments"),
         "completed": _strlist("completed"),
+        "outdated": _strlist("outdated"),
     }

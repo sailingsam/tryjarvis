@@ -1,13 +1,22 @@
 """Memory — the part of Jarvis that must NOT be rented.
 
-Three kinds of durable knowledge, each stamped with where it came from:
+Four kinds of durable knowledge, each stamped with where it came from:
 
   - Facts:       stable truths about the user ("User is vegetarian").
+  - Directives:  standing instructions the user gave the assistant itself
+                 ("keep replies short", "call me boss"). Injected on every
+                 turn — how you were told to behave is never query-dependent.
   - Commitments: open loops — things that need to happen ("Send Tanay the
                  deck"). These let Jarvis behave like a chief of staff.
   - Exchanges:   the conversation itself, archived once it leaves the brain's
                  working window. Recalled by meaning when the user refers back
                  to it — instead of every turn dragging the full transcript.
+
+Facts and directives don't just accumulate — they can be *superseded*. When
+new conversation contradicts or replaces an entry ("actually I eat fish now",
+"stop calling me boss"), the old row is retired: out of recall, kept on disk
+with its provenance. An append-only store slowly fills with stale truths and
+the assistant starts contradicting the person it exists to know.
 
 Backed by SQLite (one file, stdlib — no external service). Facts are searchable
 two ways so recall scales past "stuff everything in the prompt":
@@ -53,6 +62,7 @@ class Memory:
     content: str
     source: str
     created_at: float
+    kind: str = "fact"                  # "fact" | "directive"
     id: str = field(default_factory=_new_id)
 
     def human_time(self) -> str:
@@ -89,11 +99,14 @@ class Exchange:
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS facts (
-    id         TEXT PRIMARY KEY,
-    content    TEXT NOT NULL,
-    source     TEXT NOT NULL,
-    created_at REAL NOT NULL,
-    embedding  BLOB
+    id            TEXT PRIMARY KEY,
+    content       TEXT NOT NULL,
+    source        TEXT NOT NULL,
+    created_at    REAL NOT NULL,
+    embedding     BLOB,
+    kind          TEXT NOT NULL DEFAULT 'fact',
+    status        TEXT NOT NULL DEFAULT 'active',
+    superseded_at REAL
 );
 CREATE TABLE IF NOT EXISTS commitments (
     id          TEXT PRIMARY KEY,
@@ -135,28 +148,45 @@ class MemoryStore:
         self._conn = sqlite3.connect(str(self.path), check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._conn.executescript(_SCHEMA)
+        self._migrate()
         self._conn.commit()
 
-    # --- facts ---------------------------------------------------------
-    def add(self, content: str, source: str) -> Memory:
-        mem = Memory(content=content.strip(), source=source.strip(), created_at=time.time())
+    def _migrate(self) -> None:
+        """Bring a database from before kind/status up to the current shape.
+        ADD COLUMN backfills existing rows with the default — every old fact
+        wakes up as an active fact, which is exactly what it was."""
+        cols = {r["name"] for r in self._conn.execute("PRAGMA table_info(facts)")}
+        if "kind" not in cols:
+            self._conn.execute("ALTER TABLE facts ADD COLUMN kind TEXT NOT NULL DEFAULT 'fact'")
+        if "status" not in cols:
+            self._conn.execute("ALTER TABLE facts ADD COLUMN status TEXT NOT NULL DEFAULT 'active'")
+        if "superseded_at" not in cols:
+            self._conn.execute("ALTER TABLE facts ADD COLUMN superseded_at REAL")
+
+    # --- facts & directives ---------------------------------------------
+    def add(self, content: str, source: str, kind: str = "fact") -> Memory:
+        mem = Memory(content=content.strip(), source=source.strip(),
+                     created_at=time.time(), kind=kind)
         emb = _pack(self._embedder.embed([mem.content])[0]) if self._embedder else None
         with self._lock:
             self._conn.execute(
-                "INSERT INTO facts (id, content, source, created_at, embedding) VALUES (?, ?, ?, ?, ?)",
-                (mem.id, mem.content, mem.source, mem.created_at, emb),
+                "INSERT INTO facts (id, content, source, created_at, embedding, kind) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (mem.id, mem.content, mem.source, mem.created_at, emb, mem.kind),
             )
             self._conn.execute("INSERT INTO facts_fts (id, content) VALUES (?, ?)", (mem.id, mem.content))
             self._conn.commit()
         return mem
 
     def recall(self, query: str | None = None, k: int = 12) -> list[Memory]:
-        """No query (or few facts) → everything, ordered oldest-first. With a
-        query and enough volume → the top-k most relevant, keyword + meaning
-        fused. Retrieval lives here so the brain calls one method either way."""
+        """Active facts. No query (or few facts) → everything, oldest-first.
+        With a query and enough volume → the top-k most relevant, keyword +
+        meaning fused. Retrieval lives here so the brain calls one method
+        either way. Directives never ride along — they have their own door."""
         with self._lock:
             rows = self._conn.execute(
-                "SELECT id, content, source, created_at, embedding FROM facts ORDER BY created_at"
+                "SELECT id, content, source, created_at, embedding FROM facts "
+                "WHERE status = 'active' AND kind = 'fact' ORDER BY created_at"
             ).fetchall()
         facts = {
             r["id"]: Memory(id=r["id"], content=r["content"], source=r["source"], created_at=r["created_at"])
@@ -166,9 +196,40 @@ class MemoryStore:
             return list(facts.values())
 
         ranked = self._fused_ranking(query, rows, "facts_fts")
-        top = ranked[:k]
+        # the FTS index still knows retired ids — keep only live winners
+        top = [i for i in ranked if i in facts][:k]
         # keep chronological order among the winners — reads more naturally
         return sorted((facts[i] for i in top), key=lambda m: m.created_at)
+
+    def directives(self) -> list[Memory]:
+        """Every active standing instruction, oldest-first. All of them, every
+        time — 'reply in Hindi' has to hold whether or not the current turn
+        mentions Hindi, so directives are never query-filtered."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT id, content, source, created_at FROM facts "
+                "WHERE status = 'active' AND kind = 'directive' ORDER BY created_at"
+            ).fetchall()
+        return [
+            Memory(id=r["id"], content=r["content"], source=r["source"],
+                   created_at=r["created_at"], kind="directive")
+            for r in rows
+        ]
+
+    def retire(self, fact_id: str) -> bool:
+        """Supersede a fact or directive: out of recall, kept on disk with its
+        provenance. Memory that can only grow eventually contradicts the user
+        it describes — this is the correction path."""
+        with self._lock:
+            cur = self._conn.execute(
+                "UPDATE facts SET status = 'superseded', superseded_at = ? "
+                "WHERE id = ? AND status = 'active'",
+                (time.time(), fact_id),
+            )
+            if cur.rowcount:
+                self._conn.execute("DELETE FROM facts_fts WHERE id = ?", (fact_id,))
+            self._conn.commit()
+        return cur.rowcount > 0
 
     # --- archived conversation -----------------------------------------
     def archive_turn(self, user_text: str, reply_text: str, created_at: float | None = None) -> Exchange:
@@ -302,7 +363,9 @@ class MemoryStore:
 
     def __len__(self) -> int:
         with self._lock:
-            return self._conn.execute("SELECT COUNT(*) FROM facts").fetchone()[0]
+            return self._conn.execute(
+                "SELECT COUNT(*) FROM facts WHERE status = 'active'"
+            ).fetchone()[0]
 
 
 def _tokens(text: str) -> list[str]:

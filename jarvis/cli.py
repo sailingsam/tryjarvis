@@ -121,9 +121,16 @@ def _connect_mcp(tools: list) -> list:
 def _show_memory() -> None:
     memory = MemoryStore(config.DB_FILE)
     mems = memory.recall()
-    if not mems:
+    directives = memory.directives()
+    if not mems and not directives:
         print("(Jarvis doesn't know anything yet.)")
         return
+    if directives:
+        print(f"Standing instructions ({len(directives)}):\n")
+        for d in directives:
+            print(f"  ! {d.content}")
+            print(f"      why: heard \"{d.source}\"  ({d.human_time()})")
+        print()
     print(f"Jarvis remembers {len(mems)} thing(s):\n")
     for m in mems:
         print(f"  • {m.content}")
