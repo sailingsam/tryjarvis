@@ -523,8 +523,8 @@ footer{position:relative;border-top:1px solid var(--hair);overflow:hidden;
 .footbase .mono{color:var(--muted)}
 
 /* motion: visible by default; entrances translate only */
-@keyframes rise{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
-@media(min-width:768px){.js .rv.in{animation:rise .55s var(--ease) both}}
+@keyframes rise{from{transform:translateY(10px)}to{transform:none}}
+@media(min-width:768px){.js .rv.in{animation:rise .7s var(--ease) both}}
 .js .head>*{animation:rise .85s var(--ease) backwards}
 .js .head>*:nth-child(2){animation-delay:.1s}
 @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}html{scroll-behavior:auto}}
