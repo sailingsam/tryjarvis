@@ -439,7 +439,7 @@ h2{font-size:var(--t-h2);max-width:22ch}
 .clhead i{width:.6rem;height:.6rem;border-radius:50%;background:var(--line)}
 .clhead .mono{margin-left:.5rem;color:var(--muted)}
 .clone pre{padding:1.1rem 1.25rem 1.3rem;font-size:var(--micro);line-height:2;color:var(--ink);
-  white-space:pre-wrap;word-break:break-word;min-height:19.5em}
+  white-space:pre-wrap;word-break:break-word}
 .clone .tl{display:block;min-height:2em}
 .js .clone .tl.pop{animation:wIn .4s var(--ease) both}
 .clone .cmt{color:var(--muted)}
@@ -447,7 +447,6 @@ h2{font-size:var(--t-h2);max-width:22ch}
 .clone .caret{display:inline-block;width:.55ch;height:1em;background:var(--amber);
   vertical-align:-.12em;margin-left:1px;animation:blink 1.05s steps(1) infinite}
 @keyframes blink{50%{opacity:0}}
-@media(max-width:520px){.clone pre{min-height:25em}}
 .ghbtn svg{width:1.05rem;height:1.05rem;fill:currentColor;flex:none}
 
 /* every part unplugs — a full-width amber band, sockets in a row, chips clicking through */
@@ -524,8 +523,8 @@ footer{position:relative;border-top:1px solid var(--hair);overflow:hidden;
 .footbase .mono{color:var(--muted)}
 
 /* motion: visible by default; entrances translate only */
-@keyframes rise{from{transform:translateY(14px)}to{transform:none}}
-.js .rv.in{animation:rise .8s var(--ease) both}
+@keyframes rise{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+.js .rv.in{animation:rise .55s var(--ease) both}
 .js .head>*{animation:rise .85s var(--ease) backwards}
 .js .head>*:nth-child(2){animation-delay:.1s}
 @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}html{scroll-behavior:auto}}
@@ -1235,6 +1234,13 @@ $ mantrin
   /* ---- the terminal types itself when it comes into view ---- */
   (function(){
     var pre=document.querySelector('.clone pre'); if(!pre) return;
+    /* the static markup IS the final frame — measure it, lock it, then type into it */
+    var typing=false;
+    function lockPre(){ if(typing) return;
+      pre.style.minHeight=''; pre.style.minHeight=pre.offsetHeight+'px' }
+    lockPre();
+    if(document.fonts&&document.fonts.ready) document.fonts.ready.then(lockPre);
+    addEventListener('resize',function(){ clearTimeout(pre._r); pre._r=setTimeout(lockPre,200) });
     if(reduce||!('IntersectionObserver' in window)) return;   // static version stands
     var L=[
       {t:'s', h:'<span class="cmt"># your keys, your machine, your memory</span>'},
@@ -1249,12 +1255,12 @@ $ mantrin
     ];
     var done=false;
     function play(){
-      if(done) return; done=true;
+      if(done) return; done=true; typing=true;
       pre.innerHTML='';
       var caret=document.createElement('span'); caret.className='caret';
       var li=0;
       (function next(){
-        if(li>=L.length){ setTimeout(function(){ caret.remove() },2500); return }
+        if(li>=L.length){ typing=false; setTimeout(function(){ caret.remove() },2500); return }
         var l=L[li++], line=document.createElement('span'); line.className='tl';
         pre.appendChild(line);
         if(l.t==='s'){ line.innerHTML=l.h; next() }
