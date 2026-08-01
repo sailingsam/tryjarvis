@@ -35,7 +35,7 @@ understanding built on it.
 
 ```bash
 python3 -m venv .venv
-./.venv/bin/pip install -r requirements.txt
+./.venv/bin/pip install -r requirements.txt -e .
 export ANTHROPIC_API_KEY=...
 ```
 
@@ -43,8 +43,8 @@ export ANTHROPIC_API_KEY=...
 
 ```bash
 ./.venv/bin/pip install -r requirements-voice.txt
-./.venv/bin/python -m jarvis setup      # choose whose ears and voice; save any keys
-./.venv/bin/python -m jarvis            # then just say "hey jarvis"
+./.venv/bin/mantrin setup      # choose whose ears and voice; save any keys
+./.venv/bin/mantrin            # then just say "hey jarvis"
 ```
 
 The default stack is free and entirely local — Whisper for hearing, Piper for
@@ -59,8 +59,8 @@ the wake word every time.
 ### Type instead
 
 ```bash
-./.venv/bin/python -m jarvis --text        # keyboard in, text out
-./.venv/bin/python -m jarvis --dictate     # dictate with your own app, spoken reply
+./.venv/bin/mantrin --text        # keyboard in, text out
+./.venv/bin/mantrin --dictate     # dictate with your own app, spoken reply
 ```
 
 `--dictate` is for Wispr Flow's app, superwhisper, Willow and the rest. They own
@@ -70,8 +70,8 @@ integrate with — Mantrin reads the line and answers out loud.
 ### Swap providers
 
 ```bash
-./.venv/bin/python -m jarvis --stt grok --tts openai
-./.venv/bin/python -m jarvis --timings     # where each turn's time actually went
+./.venv/bin/mantrin --stt grok --tts openai
+./.venv/bin/mantrin --timings     # where each turn's time actually went
 ```
 
 Settings live in `~/.config/mantrin/config.json` (mode 0600, it holds keys).
@@ -83,9 +83,9 @@ Adding a provider is one class with one method, plus a line in
 ## See what it knows
 
 ```bash
-./.venv/bin/python -m jarvis memory        # every fact, and where it came from
-./.venv/bin/python -m jarvis commitments   # open loops it is tracking
-./.venv/bin/python -m jarvis brief         # a short daily brief
+./.venv/bin/mantrin memory        # every fact, and where it came from
+./.venv/bin/mantrin commitments   # open loops it is tracking
+./.venv/bin/mantrin brief         # a short daily brief
 ```
 
 Memory is SQLite at `data/jarvis.db` — open it with `sqlite3` and you can read
@@ -109,9 +109,30 @@ Only one process may hold those connections — two would mean two WhatsApp clie
 on one set of credentials — which is why voice runs there rather than in the CLI.
 
 ```bash
-./.venv/bin/python -m jarvis daemon        # run it in the foreground to watch it
-./.venv/bin/python -m jarvis --no-voice    # don't hold the microphone
+./.venv/bin/mantrin daemon        # run it in the foreground to watch it
+./.venv/bin/mantrin --no-voice    # don't hold the microphone
 ```
+
+### Run at every login
+
+```bash
+./.venv/bin/mantrin install
+```
+
+On Linux this installs a systemd user service and puts a `mantrin` command on
+your PATH: Mantrin starts when you log in, restarts if it crashes, and there is
+no terminal to keep open. From then on the commands are ones a person can
+remember — `mantrin status`, `mantrin logs`, `mantrin restart`, `mantrin stop`,
+`mantrin uninstall`.
+
+## Contributing
+
+Issues and PRs welcome — [CONTRIBUTING.md](CONTRIBUTING.md) has the setup, the
+rules that matter (start with the Human PA Test), and how changes are reviewed.
+The label [good first issue](https://github.com/sailingsam/tryjarvis/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
+marks self-contained starting points. Big roadmap features (proactivity,
+streaming voice) are being built by the maintainer — open an issue to discuss
+before starting anything large.
 
 ## License
 
