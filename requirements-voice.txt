@@ -1,22 +1,5 @@
-# Voice. Optional — text mode works without any of it.
-#
-# Deliberately no PortAudio binding (sounddevice): it needs a system library
-# installed before Python will even import, which is one more thing standing
-# between someone and their first conversation. Recording and playback go through
-# `arecord`/`aplay` or `pw-record`/`pw-play` instead, already present on any Linux
-# with ALSA or PipeWire.
-
-webrtcvad-wheels>=2.0     # endpointing — knowing when you stopped talking
-numpy>=1.24
-
-# Hearing. Pick one in `mantrin setup`; the hosted providers need only httpx,
-# which the base install already has.
-faster-whisper>=1.0       # local, free, private
-
-# Speaking
-piper-tts>=1.6            # local, free; bundles its own espeak-ng data
-miniaudio>=1.60           # decodes MP3 from hosted voices, so ffmpeg isn't needed
-
-# The wake word — local, so an always-on mic doesn't ship everything said near
-# the machine to a transcription service.
-openwakeword>=0.4
+# Voice dependencies live in pyproject.toml extras now: [voice] is the mic
+# layer (endpointing, wake word, MP3 decode), [whisper] and [piper] are the
+# heavy local providers — `mantrin setup` offers exactly what your choices
+# need. This file remains for muscle memory: it installs the lot.
+-e .[all]

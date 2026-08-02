@@ -18,8 +18,22 @@ We vendored and modified it because the upstream had gaps for our use:
 - **Send to groups** — group JIDs (`@g.us`) are no longer run through
   `jidNormalizedUser` (that mangled them).
 
-## Run standalone (for the one-time QR auth)
+## Run it
+
+Published on npm as `mantrin-whatsapp` — no clone needed:
+
 ```bash
-node src/main.ts   # scan the QR with the dedicated number, then Ctrl+C
+npx -y mantrin-whatsapp    # scan the QR with the dedicated number, then Ctrl+C
 ```
-Then Jarvis (or its daemon) launches it automatically via `data/mcp.json`.
+
+From a checkout it's `node src/main.ts` instead. Either way, Jarvis (or its
+daemon) launches it automatically afterwards via `data/mcp.json` — see the
+`whatsapp` block in `mcp.example.json`.
+
+## Where its state lives
+
+Set `WHATSAPP_MCP_DATA_DIR` and everything — `whatsapp.db`, `auth_info/`,
+logs — lands there. Mantrin's example config points it at
+`~/.local/share/mantrin/whatsapp`. Unset, state sits next to the source,
+which is right for a checkout and wrong under npx (npm's cache is not a
+home for your WhatsApp session).

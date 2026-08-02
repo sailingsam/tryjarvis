@@ -35,14 +35,17 @@ understanding built on it.
 
 ```bash
 python3 -m venv .venv
-./.venv/bin/pip install -r requirements.txt -e .
+./.venv/bin/pip install -e ".[voice]"
 export ANTHROPIC_API_KEY=...
 ```
+
+`[voice]` is the microphone layer. The heavy local providers install only if
+you pick them: `mantrin setup` offers to fetch what your choices need, or grab
+everything up front with `pip install -e ".[all]"`.
 
 ## Talk to it
 
 ```bash
-./.venv/bin/pip install -r requirements-voice.txt
 ./.venv/bin/mantrin setup      # choose whose ears and voice; save any keys
 ./.venv/bin/mantrin            # then just say "hey jarvis"
 ```

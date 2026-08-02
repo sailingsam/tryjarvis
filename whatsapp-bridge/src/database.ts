@@ -2,7 +2,11 @@ import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
 import fs from "node:fs";
 
-const DATA_DIR = path.join(import.meta.dirname, "..", "data");
+// One env var moves ALL bridge state (db, auth, logs). Without it, state
+// sits next to the source — right for a repo checkout, fatal under npx,
+// where "next to the source" is npm's cache and gets wiped.
+const DATA_DIR = process.env.WHATSAPP_MCP_DATA_DIR
+  ?? path.join(import.meta.dirname, "..", "data");
 const DB_PATH = path.join(DATA_DIR, "whatsapp.db");
 
 export interface Chat {

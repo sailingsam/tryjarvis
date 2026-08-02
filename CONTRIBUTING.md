@@ -9,11 +9,9 @@ It's short, and most review feedback here is one of its principles restated.
 ```bash
 git clone https://github.com/sailingsam/tryjarvis.git && cd tryjarvis
 python3 -m venv .venv
-./.venv/bin/pip install -r requirements.txt -e .
+./.venv/bin/pip install -e ".[all]"   # core + voice + both local providers
 export ANTHROPIC_API_KEY=...          # the brain runs on Claude
 
-# voice (optional but it's the point):
-./.venv/bin/pip install -r requirements-voice.txt
 ./.venv/bin/mantrin setup             # pick ears/voice; local defaults are free
 ./.venv/bin/mantrin                   # say "hey jarvis"
 ```

@@ -69,11 +69,18 @@ _load_saved_keys()
 
 SETTINGS = load_settings()
 
-# Where Jarvis keeps its memory — a SQLite database. In the project dir so it
-# is easy to inspect during v1 (transparency: `sqlite3 data/jarvis.db` and you
-# can see everything it knows). Upgrades to FTS/vector, then Postgres for the
-# multi-device cloud brain, live behind the MemoryStore interface.
-DATA_DIR = Path(os.environ.get("JARVIS_DATA_DIR", Path(__file__).resolve().parent.parent / "data"))
+# Where Jarvis keeps its memory — a SQLite database. Running from a checkout,
+# it sits in the project dir for transparency (`sqlite3 data/jarvis.db` and you
+# can see everything it knows). Installed from PyPI there is no project dir —
+# the parent is site-packages, which is no place for someone's memory — so it
+# moves to the XDG data home like any desktop app's.
+_PROJECT = Path(__file__).resolve().parent.parent
+_DEFAULT_DATA = (
+    _PROJECT / "data"
+    if (_PROJECT / "pyproject.toml").exists()
+    else Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")) / "mantrin"
+)
+DATA_DIR = Path(os.environ.get("JARVIS_DATA_DIR", _DEFAULT_DATA))
 DB_FILE = DATA_DIR / "jarvis.db"
 
 # Unix socket for the persistent daemon. When it's up, the CLI is a thin client

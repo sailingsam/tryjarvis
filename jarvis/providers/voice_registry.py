@@ -49,6 +49,31 @@ def requirements(spec: Spec) -> tuple[list[str], list[str]]:
     return _missing_modules(spec), _missing_keys(spec)
 
 
+# import name -> pip name, for the modules whose two names differ. An error
+# that says "needs faster_whisper" and means "pip install faster-whisper"
+# sends people to install the wrong thing.
+_PIP_NAMES = {
+    "faster_whisper": "faster-whisper",
+    "piper": "piper-tts",
+    "webrtcvad": "webrtcvad-wheels",
+}
+
+
+def pip_packages(modules: list[str]) -> list[str]:
+    """The pip install arguments for a list of missing import names."""
+    return [_PIP_NAMES.get(m, m) for m in modules]
+
+
+# The microphone layer itself — endpointing, wake word, hosted-voice decode.
+# Every audio provider rides on it, so it belongs to no single Spec; it is
+# what the `mantrin[voice]` extra installs.
+VOICE_LAYER = ("webrtcvad", "numpy", "openwakeword", "miniaudio")
+
+
+def missing_voice_layer() -> list[str]:
+    return [m for m in VOICE_LAYER if importlib.util.find_spec(m) is None]
+
+
 # --------------------------------------------------------------------- STT
 
 
@@ -180,7 +205,7 @@ def _build(table: dict[str, Spec], name: str, kind: str, options: dict) -> objec
     if modules:
         raise Unavailable(
             f"{spec.label} needs {', '.join(modules)} installed. "
-            f"Run: pip install -r requirements-voice.txt"
+            f"Run: pip install {' '.join(pip_packages(modules))}"
         )
     if keys:
         where = f" Get one at {spec.docs}." if spec.docs else ""

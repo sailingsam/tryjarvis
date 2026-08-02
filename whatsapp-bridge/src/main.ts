@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+import fs from "node:fs";
 import { pino } from "pino";
 import { initializeDatabase } from "./database.ts";
 import { startWhatsAppConnection, type WhatsAppSocket } from "./whatsapp.ts";
@@ -17,6 +19,9 @@ console.warn = console.error;
 console.debug = console.error;
 
 const dataDir = process.env.WHATSAPP_MCP_DATA_DIR || '.';
+// pino.destination creates the file but not the directory — under npx the
+// state dir doesn't exist until somebody makes it.
+fs.mkdirSync(dataDir, { recursive: true });
 const waLogger = pino(
   {
     level: process.env.LOG_LEVEL || "info",

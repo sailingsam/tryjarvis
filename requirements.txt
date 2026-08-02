@@ -1,14 +1,4 @@
-# Core (text mode) — proves the memory bet, runs anywhere.
-anthropic>=0.117
-
-# Memory retrieval: local embeddings for semantic recall (ONNX, CPU, no key).
-fastembed>=0.3
-
-# Tools: keyless web search (DuckDuckGo).
-ddgs>=9.0
-
-# Tools: MCP client (external tool servers).
-mcp>=1.0
-
-# X (Twitter) API
-tweepy>=4.16
+# The dependency list lives in pyproject.toml now — it has to, so that
+# `pip install mantrin` from PyPI carries it. This file remains for muscle
+# memory and CI: installing from it = installing the project, core only.
+-e .

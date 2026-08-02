@@ -2,6 +2,14 @@
   "_comment": "Copy relevant blocks into data/mcp.json (gitignored). Secrets can be ${ENV_VARS}, expanded from your environment at startup — keep real tokens out of this file.",
   "servers": [
     {
+      "name": "whatsapp",
+      "command": "npx",
+      "args": ["-y", "mantrin-whatsapp@latest"],
+      "env": {
+        "WHATSAPP_MCP_DATA_DIR": "${HOME}/.local/share/mantrin/whatsapp"
+      }
+    },
+    {
       "name": "slack",
       "command": "npx",
       "args": ["-y", "slack-mcp-server@latest"],

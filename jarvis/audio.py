@@ -641,9 +641,10 @@ def probe() -> str | None:
         return str(e)
     try:
         import webrtcvad  # noqa: F401
-    except ImportError:
-        return ("webrtcvad is not installed — voice needs it for endpointing. "
-                "pip install -r requirements-voice.txt")
+        import numpy      # noqa: F401
+    except ImportError as e:
+        return (f"{e.name} is not installed — voice needs the microphone layer. "
+                f'pip install "mantrin[voice]"')
     # Reading the mic blocks, so a device that opens but never delivers audio
     # would hang here forever. Read on a thread and give up after a few seconds.
     result: list[str | None] = []

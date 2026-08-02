@@ -21,7 +21,9 @@ import {
   type Message as DbMessage,
 } from "./database.ts";
 
-const AUTH_DIR = path.join(import.meta.dirname, "..", "auth_info");
+const AUTH_DIR = process.env.WHATSAPP_MCP_DATA_DIR
+  ? path.join(process.env.WHATSAPP_MCP_DATA_DIR, "auth_info")
+  : path.join(import.meta.dirname, "..", "auth_info");
 
 export type WhatsAppSocket = ReturnType<typeof makeWASocket>;
 

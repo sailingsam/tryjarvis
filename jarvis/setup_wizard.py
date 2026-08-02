@@ -5,18 +5,41 @@ question it has to answer is whose speech services to use. Asking once and
 remembering is better than a README telling people which environment variables
 to export.
 
-The wizard never installs anything or dials out. It writes one 0600 file and
-prints exactly what is still missing, so a failure names itself instead of
-turning up later as silence.
+The wizard installs nothing behind your back: when a chosen provider needs a
+python package that isn't there, it names the exact packages and asks before
+running pip. Decline, and the summary at the end still prints the command to
+run yourself. Either way a failure names itself instead of turning up later
+as silence.
+
+Dependencies are choice-sized on purpose (see pyproject's extras): someone on
+hosted ears and a hosted voice never downloads a local model runtime.
 """
 
 from __future__ import annotations
 
 import getpass
 import os
+import subprocess
+import sys
 
 from . import audio, config, wake
 from .providers import voice_registry as registry
+
+
+def _offer_install(label: str, modules: list[str]) -> None:
+    """Something chosen needs packages that aren't there — offer to fetch
+    them now, by name, with consent. Nobody should finish setup and meet an
+    ImportError as their first conversation."""
+    if not modules:
+        return
+    packages = registry.pip_packages(modules)
+    print(f"\n  {label} needs: {', '.join(packages)} (this can be a large download)")
+    answer = input("  Install now with pip? [Y/n] ").strip().lower()
+    if answer in ("n", "no"):
+        return
+    result = subprocess.run([sys.executable, "-m", "pip", "install", *packages])
+    if result.returncode != 0:
+        print("  (pip failed — the summary below will name what's still missing)")
 
 
 def _choose(kind: str, table: dict, current: str) -> str:
@@ -88,7 +111,7 @@ def _choose_wake_word(current: str) -> str:
     print("    choices are the models that exist:")
     if not phrases:
         print("    (openwakeword is not installed — no gate is possible yet;")
-        print("     pip install -r requirements-voice.txt, then rerun setup)")
+        print("     pip install openwakeword, then rerun setup)")
         return current
     options = phrases + ["off — always listen (everything gets transcribed)"]
     for i, name in enumerate(options, 1):
@@ -131,10 +154,18 @@ def _run() -> int:
     stt = _choose("Speech to text (how Mantrin hears you)", registry.STT,
                   settings.get("stt") or registry.DEFAULT_STT)
     keys = _collect_keys([registry.STT[stt]], keys)
+    _offer_install(registry.STT[stt].label, registry.requirements(registry.STT[stt])[0])
 
     tts = _choose("Text to speech (how Mantrin answers)", registry.TTS,
                   settings.get("tts") or registry.DEFAULT_TTS)
     keys = _collect_keys([registry.TTS[tts]], keys)
+    _offer_install(registry.TTS[tts].label, registry.requirements(registry.TTS[tts])[0])
+
+    # The mic layer rides under every audio provider — hosted ears still need
+    # endpointing and the wake word running locally.
+    if registry.STT[stt].mode != "text":
+        _offer_install("The microphone layer (endpointing + wake word)",
+                       registry.missing_voice_layer())
 
     settings["keys"] = keys
     settings["stt"], settings["tts"] = stt, tts
@@ -148,12 +179,16 @@ def _run() -> int:
     # Report what still stands between this and a working conversation, now,
     # rather than as a mysterious silence on the first real run.
     problems = []
+    still_missing: list[str] = []
     for kind, name, table in (("STT", stt, registry.STT), ("TTS", tts, registry.TTS)):
         modules, missing = registry.requirements(table[name])
+        still_missing += [m for m in modules if m not in still_missing]
         if modules:
             problems.append(f"{kind} ({table[name].label}) needs: {', '.join(modules)}")
         if missing:
             problems.append(f"{kind} ({table[name].label}) still has no {', '.join(missing)}")
+    if registry.STT[stt].mode != "text":
+        still_missing += [m for m in registry.missing_voice_layer() if m not in still_missing]
 
     if registry.STT[stt].mode != "text":
         reason = audio.probe()
@@ -164,7 +199,9 @@ def _run() -> int:
         print("\nStill to do:")
         for p in problems:
             print(f"  - {p}")
-        print("\n  Missing python packages: pip install -r requirements-voice.txt")
+        if still_missing:
+            print(f"\n  Missing python packages: "
+                  f"pip install {' '.join(registry.pip_packages(still_missing))}")
         return 1
 
     print("\nReady. Run `mantrin` and start talking.")

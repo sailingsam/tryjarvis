@@ -6,12 +6,45 @@ build-backend = "setuptools.build_meta"
 name = "mantrin"
 version = "0.1.0"
 description = "A personal chief of staff you talk to."
+readme = "README.md"
+license = { file = "LICENSE.md" }
 requires-python = ">=3.10"
 
-# Dependencies stay in requirements*.txt for now: the base set is small, the
-# voice set is optional and heavy, and this file exists so the package and the
-# `mantrin` command are properly installed — importable from any directory,
-# not only from a shell that happens to be sitting in the repo.
+# The core proves the memory bet and runs anywhere: brain, memory, tools,
+# text mode — and every HOSTED ear/voice, which need nothing heavier than
+# an HTTP call. `pip install mantrin` stays light on purpose.
+dependencies = [
+    "anthropic>=0.117",     # the rented intelligence
+    "fastembed>=0.3",       # local embeddings for memory recall (ONNX, CPU)
+    "ddgs>=9.0",            # keyless web search
+    "mcp>=1.0",             # external tool servers
+    "tweepy>=4.16",         # X (Twitter)
+]
+
+[project.urls]
+Homepage = "https://tryjarvis.in"
+Source = "https://github.com/sailingsam/tryjarvis"
+Issues = "https://github.com/sailingsam/tryjarvis/issues"
+
+# You install only what you picked in `mantrin setup` — the wizard offers to
+# fetch what's missing. Someone on Grok ears + OpenAI voice never downloads
+# a local model runtime.
+[project.optional-dependencies]
+# The microphone layer every voice setup needs: endpointing (webrtcvad),
+# the local wake word, MP3 decode for hosted voices. Deliberately no
+# PortAudio binding — capture/playback go through arecord/pw-record,
+# already present on any Linux with ALSA or PipeWire.
+voice = [
+    "webrtcvad-wheels>=2.0",
+    "numpy>=1.24",
+    "openwakeword>=0.4",
+    "miniaudio>=1.60",
+]
+# The heavy local providers ride separately, carried only by those who
+# choose them.
+whisper = ["faster-whisper>=1.0"]       # local ears
+piper = ["piper-tts>=1.6"]              # local voice
+all = ["mantrin[voice,whisper,piper]"]
 
 [project.scripts]
 mantrin = "jarvis.cli:main"

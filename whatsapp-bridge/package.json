@@ -1,12 +1,34 @@
 {
-  "name": "whatsapp-mcp-ts",
-  "version": "1.0.0",
+  "name": "mantrin-whatsapp",
+  "version": "0.1.0",
+  "description": "Mantrin's WhatsApp bridge — an MCP server over Baileys. Forked from jlucaso1/whatsapp-mcp-ts.",
   "main": "src/main.ts",
+  "bin": {
+    "mantrin-whatsapp": "src/main.ts"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
   "type": "module",
-  "keywords": [],
-  "author": "jlucaso",
+  "keywords": [
+    "whatsapp",
+    "mcp",
+    "baileys",
+    "mantrin",
+    "jarvis"
+  ],
+  "author": "Saksham Jain",
+  "contributors": [
+    "jlucaso (upstream whatsapp-mcp-ts)"
+  ],
   "license": "ISC",
-  "description": "",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sailingsam/tryjarvis.git",
+    "directory": "whatsapp-bridge"
+  },
+  "homepage": "https://tryjarvis.in",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.8.0",
     "@whiskeysockets/baileys": "^7.0.0-rc13",
