@@ -43,6 +43,20 @@ from .tools.base import Registry
 from .tools.web_search import WebSearch
 
 
+def publish_state(state: str, detail: str = "") -> None:
+    """Drop the daemon's condition where the desktop can see it — the tray
+    icon's colour is literally this file. Atomic write so a reader never
+    catches half a JSON object; best-effort because a missing state file
+    must never take the voice down with it."""
+    try:
+        config.DATA_DIR.mkdir(parents=True, exist_ok=True)
+        tmp = config.STATE_FILE.with_suffix(".tmp")
+        tmp.write_text(json.dumps({"state": state, "detail": detail, "ts": time.time()}))
+        tmp.replace(config.STATE_FILE)
+    except OSError:
+        pass
+
+
 def _x_tools() -> list:
     """X (Twitter) tools, only if creds are configured in the environment."""
     if not config.x_configured():
@@ -131,6 +145,7 @@ def _voice_loop(turns: _Turns, memory) -> None:
         # terminal here to read from either.
         print("(voice off: your dictation app types into a terminal — run `mantrin --dictate`)",
               flush=True)
+        publish_state("off", "dictation mode — no microphone held")
         return
 
     # At login the daemon can beat PipeWire to the punch — the service starts
@@ -145,6 +160,7 @@ def _voice_loop(turns: _Turns, memory) -> None:
         problem = audio_probe()
     if problem:
         print(f"(voice off: {problem})", flush=True)
+        publish_state("error", f"voice off: {problem}")
         return
 
     try:
@@ -152,6 +168,7 @@ def _voice_loop(turns: _Turns, memory) -> None:
         tts = registry.build_tts(config.TTS_PROVIDER, **config.TTS_OPTIONS)
     except registry.Unavailable as e:
         print(f"(voice off: {e})", flush=True)
+        publish_state("error", f"voice off: {e}")
         return
 
     io = VoiceIO(
@@ -159,17 +176,20 @@ def _voice_loop(turns: _Turns, memory) -> None:
         gate=wake.build(config.WAKE_WORD),
         hints=lambda: _name_hints(memory),
         show_timings=config.SHOW_TIMINGS,
+        on_state=publish_state,
     )
     try:
         while True:
             text = io.listen()
             if text is None:
                 print("(microphone stream ended — voice off)", flush=True)
+                publish_state("error", "microphone stream ended")
                 return
             try:
                 # Timed here because only this loop sees the whole brain call —
                 # and the brain is usually the biggest share of a turn, which is
                 # exactly what --timings exists to show.
+                publish_state("thinking")
                 with io.turn.stage("brain"):
                     reply = turns.think(text, io=io)
                 io.speak(reply)
@@ -227,6 +247,7 @@ def run() -> int:
     pid_path.write_text(str(os.getpid()))
 
     print("Jarvis daemon starting — loading brain + connections…", flush=True)
+    publish_state("starting", "loading brain + connections")
     memory = MemoryStore(config.DB_FILE, embedder=LocalEmbedder())
     tools = [WebSearch(), *_x_tools()]
     mcp_clients = _connect_mcp(tools)   # WhatsApp etc. now stay connected here
@@ -250,6 +271,8 @@ def run() -> int:
             target=_voice_loop, args=(turns, memory), daemon=True, name="voice"
         )
         voice.start()
+    else:
+        publish_state("off", "voice disabled — text only")
 
     try:
         while True:
@@ -263,6 +286,7 @@ def run() -> int:
         # rather than dying with a traceback over a shutdown that was already
         # underway.
         try:
+            publish_state("off", "shut down")
             turns.stop()
             brain.close()       # let queued memory updates land before exit
             server.close()

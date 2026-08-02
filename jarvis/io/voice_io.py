@@ -27,7 +27,14 @@ import re
 import time
 from typing import Callable
 
-from .. import audio, timings, wake
+from .. import audio, config, timings, wake
+
+
+def _mic_paused() -> bool:
+    """The tray's hard mute: while this flag file exists, even the wake word
+    is ignored. A file rather than a socket message so a different process
+    (the tray) can flip it with no protocol, and a crash leaves it readable."""
+    return config.MIC_PAUSE_FILE.exists()
 
 # How much louder than Mantrin's own voice an interruption has to be. Measured
 # against the room during playback rather than fixed, because a laptop speaker
@@ -41,6 +48,11 @@ _BARGE_IN_MARGIN = 1.6
 # is barely audible to the mic doesn't leave the bar at fan level.
 _BARGE_IN_GATE_BOOST = 1.5
 _BARGE_IN_ONSET_MS = 360        # sustained: a false stop costs the whole reply
+# How long after playback starts before the *energy* path may interrupt at all.
+# Covers player start-up silence plus one onset window, so the own-voice bar has
+# heard actual playback before anything is measured against it. The wake word
+# is exempt — it works from the first frame.
+_BARGE_IN_BLIND_MS = 900
 
 # How long to wait for the command after the wake word before deciding nobody is
 # talking to us. Long enough for "hey jarvis" … *thinks* … "remind me to…", short
@@ -99,6 +111,7 @@ class VoiceIO:
         follow_up_ms: int = 8_000,
         show_timings: bool = False,
         stream: audio.FrameStream | None = None,
+        on_state: Callable[[str], None] | None = None,
     ):
         self._stt = stt
         self._tts = tts
@@ -106,6 +119,9 @@ class VoiceIO:
         self._hints = hints
         self._follow_up = follow_up_ms / 1000
         self._show_timings = show_timings
+        # Tells the desktop what the ears are doing ("ready", "hearing",
+        # "speaking", "paused") — the tray icon's colour is this callback.
+        self._on_state = on_state or (lambda s: None)
 
         self._stream = stream or audio.FrameStream()
         self._frames = self._stream.frames()
@@ -131,11 +147,15 @@ class VoiceIO:
         gated = getattr(self._gate, "is_gate", False)
         while True:
             self.turn = timings.Turn(enabled=self._show_timings)
-            armed = gated and time.monotonic() > self._listen_until
+            # A pause (the tray's hard mute) collapses the follow-up window
+            # too: pressing it mid-conversation must take effect now, not
+            # after the window happens to expire.
+            armed = gated and (_mic_paused() or time.monotonic() > self._listen_until)
 
             if armed:
                 if not self._await_wake():
                     return None
+                self._on_state("hearing")
                 # Wait for the command rather than assuming it is already
                 # underway. People say the wake word both ways — "hey jarvis,
                 # remind me…" in one breath, and "hey jarvis" … pause …
@@ -219,15 +239,30 @@ class VoiceIO:
         return text
 
     def _await_wake(self) -> bool:
-        """Consume frames until the wake word fires. False if the mic died."""
+        """Consume frames until the wake word fires. False if the mic died.
+
+        While the pause flag is down (the tray's hard mute), even the wake
+        word is ignored — the mic keeps feeding the noise floor so unpausing
+        works instantly, but nothing can open the gate.
+        """
+        paused = _mic_paused()
+        self._on_state("paused" if paused else "ready")
+        frames_seen = 0
         for frame in self._frames:
             # Idle is when most of the day's audio goes past, so it is also when
             # the noise floor must keep learning. Otherwise music that started
             # while Mantrin was dormant would meet a stale, quiet-room gate the
             # moment the wake word fires.
             self._endpointer.observe(frame)
+            frames_seen += 1
+            if frames_seen % 32 == 0:           # re-check the flag ~once a second
+                was, paused = paused, _mic_paused()
+                if was != paused:
+                    self._on_state("paused" if paused else "ready")
             if self._gate.open(frame):
                 self._gate.reset()
+                if paused:
+                    continue
                 return True
         return False
 
@@ -235,6 +270,7 @@ class VoiceIO:
 
     def speak(self, text: str) -> None:
         print(f"jarvis> {text}\n")
+        self._on_state("speaking")
         started = time.monotonic()
         first: list[float] = []
         playback = self._tts.speak(
@@ -258,6 +294,7 @@ class VoiceIO:
         self._stream.drain()
         self._gate.reset()
         self._listen_until = time.monotonic() + self._follow_up
+        self._on_state("hearing")       # the follow-up window: mic is hot
         if self._show_timings:
             summary = self.turn.summary()
             if summary:
@@ -289,10 +326,18 @@ class VoiceIO:
           reply and a real interrupter keeps talking
         """
         gated = getattr(self._gate, "is_gate", False)
+        if gated:
+            # The wake model still holds the last couple of seconds it heard —
+            # which, right after a wake-word turn, is the wake word itself.
+            # Fed its first fresh frame during playback it would fire on that
+            # stale buffer and stop the reply at the first syllable. Playback
+            # is a new acoustic scene; the model starts from silence.
+            self._gate.reset()
         onset_needed = max(1, _BARGE_IN_ONSET_MS // audio.FRAME_MS)
         pending: collections.deque[int] = collections.deque(maxlen=onset_needed)
         own_voice = 0
         run = 0
+        started = time.monotonic()
 
         for frame in self._frames:
             if playback.stopped or not playback.playing:
@@ -302,6 +347,7 @@ class VoiceIO:
             if gated and self._gate.open(frame):
                 playback.stop()
                 self._gate.reset()
+                print("(barge-in: wake word)", flush=True)
                 return True
 
             warmed_up = len(pending) == pending.maxlen
@@ -317,8 +363,15 @@ class VoiceIO:
             )
             cut_in = peak >= threshold and self._endpointer.is_speech_frame(frame)
             run = run + 1 if cut_in else 0
-            if run >= onset_needed:
+            # Deaf-to-energy start: the player's first frames are start-up
+            # silence, so the own-voice bar is still set against a quiet room
+            # exactly when Mantrin's opening word arrives — and the lagged
+            # tracking loses that race every time. Until the bar has heard
+            # real playback, only the wake word can interrupt.
+            if run >= onset_needed and (time.monotonic() - started) * 1000 > _BARGE_IN_BLIND_MS:
                 playback.stop()
+                print(f"(barge-in: voice — peak {peak} over bar {threshold}, "
+                      f"own voice {own_voice})", flush=True)
                 return True
         return False
 

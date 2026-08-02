@@ -125,6 +125,11 @@ no terminal to keep open. From then on the commands are ones a person can
 remember — `mantrin status`, `mantrin logs`, `mantrin restart`, `mantrin stop`,
 `mantrin uninstall`.
 
+It also puts a status icon in the top bar (`mantrin tray`, auto-started at
+login): green means listening for the wake word, blue means mid-conversation,
+yellow starting, red something's wrong. The menu holds a **Pause microphone**
+hard mute — while it's on, even the wake word is ignored.
+
 ## Contributing
 
 Issues and PRs welcome — [CONTRIBUTING.md](CONTRIBUTING.md) has the setup, the

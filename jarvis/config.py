@@ -79,6 +79,10 @@ DB_FILE = DATA_DIR / "jarvis.db"
 # Unix socket for the persistent daemon. When it's up, the CLI is a thin client
 # that talks to it (so WhatsApp etc. stay connected and capture messages).
 SOCKET_FILE = DATA_DIR / "jarvis.sock"
+# Where the daemon tells the desktop how it's doing (tray icon reads this),
+# and the flag the tray drops to hard-mute the microphone.
+STATE_FILE = DATA_DIR / "state.json"
+MIC_PAUSE_FILE = DATA_DIR / "mic-paused"
 
 # Reasoning model — used for the conversational reply.
 LLM_MODEL = os.environ.get("JARVIS_MODEL", "claude-sonnet-5")

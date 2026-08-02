@@ -18,3 +18,6 @@ mantrin = "jarvis.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["jarvis*"]
+
+[tool.setuptools.package-data]
+jarvis = ["assets/tray/*.png"]

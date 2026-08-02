@@ -176,13 +176,42 @@ def _install_launcher() -> Path | None:
     return launcher
 
 
+def _install_tray_autostart(launcher: Path) -> None:
+    """Put the status icon in the top bar at every login, and right now.
+
+    XDG autostart rather than a systemd unit: the tray belongs to a desktop
+    session (it needs the session's display and DBus), and autostart is the
+    mechanism every desktop honours for exactly this.
+    """
+    autostart = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "autostart"
+    try:
+        autostart.mkdir(parents=True, exist_ok=True)
+        (autostart / "mantrin-tray.desktop").write_text(f"""\
+[Desktop Entry]
+Type=Application
+Name=Mantrin status
+Comment=Green means listening; the mute lives here too
+Exec={launcher} tray
+X-GNOME-Autostart-enabled=true
+""")
+    except OSError as e:                    # pragma: no cover
+        print(f"(couldn't install the tray autostart: {e})")
+        return
+    if os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"):
+        subprocess.Popen([str(launcher), "tray"], stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL, start_new_session=True)
+        print("Status icon is in the top bar — green means listening.")
+
+
 def install() -> int:
     if not _have_systemd():
         print("This system doesn't run systemd — start Mantrin with `mantrin` "
               "instead (it stays alive in the background until reboot).")
         return 1
-    if _install_launcher():
+    launcher = _install_launcher()
+    if launcher:
         print("`mantrin` is now a command — works from any terminal.")
+        _install_tray_autostart(launcher)
     carried = _persist_shell_keys()
     if carried:
         print(f"Saved {', '.join(carried)} into {config.CONFIG_FILE} — a service "
@@ -225,6 +254,13 @@ def uninstall() -> int:
     _systemctl("disable", "--now", UNIT)
     _unit_path().unlink(missing_ok=True)
     _systemctl("daemon-reload")
+    autostart = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "autostart"
+    (autostart / "mantrin-tray.desktop").unlink(missing_ok=True)
+    tray_pid = config.DATA_DIR / "tray.pid"
+    try:
+        os.kill(int(tray_pid.read_text().strip()), signal.SIGTERM)
+    except (OSError, ValueError):
+        pass
     print("Service removed. `mantrin` still works — it just won't start at login.")
     return 0
 
