@@ -244,30 +244,42 @@ class VoiceIO:
     def _await_wake(self) -> bool:
         """Consume frames until the wake word fires. False if the mic died.
 
-        While the pause flag is down (the tray's hard mute), even the wake
-        word is ignored — the mic keeps feeding the noise floor so unpausing
-        works instantly, but nothing can open the gate.
+        The pause flag (the tray's hard mute) releases the microphone DEVICE,
+        not just the gate: the recorder process exits and the OS's mic-in-use
+        indicator goes out. A mute the OS still reports as "microphone in use"
+        asks the user to trust our icon over their system's — they shouldn't
+        have to, and they won't.
         """
         paused = _mic_paused()
+        if paused:
+            self._stream.suspend()
         self._on_state("paused" if paused else "ready")
         frames_seen = 0
-        for frame in self._frames:
+        while True:
+            if paused:
+                time.sleep(0.5)
+                if _mic_paused():
+                    continue
+                paused = False
+                self._stream.resume()
+                self._on_state("ready")
+            frame = next(self._frames, None)
+            if frame is None:
+                return False                    # the mic actually died
             # Idle is when most of the day's audio goes past, so it is also when
             # the noise floor must keep learning. Otherwise music that started
             # while Mantrin was dormant would meet a stale, quiet-room gate the
             # moment the wake word fires.
             self._endpointer.observe(frame)
             frames_seen += 1
-            if frames_seen % 32 == 0:           # re-check the flag ~once a second
-                was, paused = paused, _mic_paused()
-                if was != paused:
-                    self._on_state("paused" if paused else "ready")
+            if frames_seen % 32 == 0 and _mic_paused():   # ~once a second
+                paused = True
+                self._stream.suspend()
+                self._on_state("paused")
+                continue
             if self._gate.open(frame):
                 self._gate.reset()
-                if paused:
-                    continue
                 return True
-        return False
 
     # ----------------------------------------------------------------- out
 

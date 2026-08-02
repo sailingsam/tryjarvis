@@ -95,8 +95,12 @@ def current_status() -> tuple[str, str]:
     socket says whether it is still alive to feel anything. A 'ready' from a
     process that stopped answering is a crash, not a status."""
     state, detail = _read_state()
-    if config.MIC_PAUSE_FILE.exists() and state in ("ready", "hearing"):
-        state = "paused"
+    # The daemon says "paused" only once the recorder process is actually gone
+    # and the OS mic light is out. Until then the honest icon is the live one —
+    # claiming muted while the device is still held is exactly the lie this
+    # feature exists to avoid.
+    if config.MIC_PAUSE_FILE.exists() and state != "paused":
+        detail = "muting — finishing the current exchange"
     if not _daemon_answering():
         if state == "starting":
             pass                        # socket comes up last; yellow is the truth

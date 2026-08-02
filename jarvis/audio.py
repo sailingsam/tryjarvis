@@ -167,6 +167,7 @@ class FrameStream:
         )
         self._cv = threading.Condition()
         self._closed = threading.Event()
+        self._suspended = False
         self._reader = threading.Thread(target=self._pump, daemon=True, name="mic-reader")
         self._reader.start()
 
@@ -179,9 +180,33 @@ class FrameStream:
                     self._queue.append(frame)
                     self._cv.notify()
         finally:
-            self._closed.set()
+            # A suspended mic is a deliberate release, not a death: consumers
+            # keep waiting for resume(). Only a real end closes the stream.
+            if not self._suspended:
+                self._closed.set()
             with self._cv:
                 self._cv.notify_all()       # release any waiting consumer
+
+    def suspend(self) -> None:
+        """Let go of the microphone *device* — the recorder process exits and
+        the OS's mic-in-use light goes out. A mute that keeps the device open
+        asks the user to take our word for it; the OS indicator is the one
+        witness they already trust."""
+        if self._suspended:
+            return
+        self._suspended = True
+        self._mic.close()
+        self._reader.join(timeout=3)
+        self.drain()
+
+    def resume(self) -> None:
+        """Reopen the device and start pumping again."""
+        if not self._suspended:
+            return
+        self._mic = Mic()
+        self._suspended = False
+        self._reader = threading.Thread(target=self._pump, daemon=True, name="mic-reader")
+        self._reader.start()
 
     def frames(self) -> Iterator[bytes]:
         """Yield frames as they arrive, forever, oldest first."""
