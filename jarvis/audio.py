@@ -29,6 +29,7 @@ import shutil
 import subprocess
 import threading
 import time
+from pathlib import Path
 from typing import Iterable, Iterator
 
 # 16kHz mono s16 throughout. Whisper resamples to 16k anyway, webrtcvad only
@@ -46,43 +47,88 @@ class AudioUnavailable(RuntimeError):
 
 # ----------------------------------------------------- echo cancellation
 
-# Node names created by the PipeWire echo-cancel module (WebRTC AEC — the same
-# engine Chrome uses for calls). `mantrin install` drops the config that loads
-# it. When these nodes exist, Mantrin records from the cancelled source and
-# speaks through the cancelled sink, so the microphone stops hearing Mantrin —
-# measured on real hardware: its own voice comes back ~12x quieter, at room-
-# noise level. Without the nodes everything falls back to the plain devices.
+# WebRTC AEC (the engine Chrome runs calls through), via PipeWire's
+# echo-cancel module — Mantrin records from the cancelled source and speaks
+# through the cancelled sink, so the microphone stops hearing Mantrin.
+# Measured on real hardware: its own voice comes back ~12x quieter, at
+# room-noise level.
+#
+# The module runs in a CHILD PROCESS (`pipewire -c echo-cancel.conf`), not in
+# the user's sound config: a config-loaded module captures the mic 24/7 and
+# keeps the OS "mic in use" light on forever, making the one indicator users
+# actually trust meaningless. The child lives exactly as long as the Mic —
+# suspend the mic and nothing on the machine is capturing, provably.
 EC_SOURCE = "mantrin.ec.source"
 EC_SINK = "mantrin.ec.sink"
+_EC_CONF = Path(__file__).resolve().parent / "assets" / "echo-cancel.conf"
+_EC_MODULE = Path("/usr/lib/x86_64-linux-gnu/pipewire-0.3/libpipewire-module-echo-cancel.so")
 
-_ec_checked: bool | None = None
+_ec_proc: subprocess.Popen | None = None
+_ec_announced = False
+
+
+def _ec_possible() -> bool:
+    return (_EC_CONF.exists() and _EC_MODULE.exists()
+            and all(shutil.which(t) for t in ("pipewire", "pw-cli", "pw-record", "pw-play")))
+
+
+def _node_exists(name: str) -> bool:
+    try:
+        nodes = subprocess.run(["pw-cli", "ls", "Node"],
+                               capture_output=True, text=True, timeout=5).stdout
+        return name in nodes
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
+def _start_echo_cancel() -> bool:
+    """Bring up the canceller and wait for its nodes. False → plain mic."""
+    global _ec_proc, _ec_announced
+    if _ec_proc is not None and _ec_proc.poll() is None:
+        return True
+    if not _ec_possible():
+        return False
+    try:
+        proc = subprocess.Popen(["pipewire", "-c", str(_EC_CONF)],
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except OSError:
+        return False
+    for _ in range(30):                     # nodes usually appear well inside a second
+        if _node_exists(EC_SOURCE) and _node_exists(EC_SINK):
+            _ec_proc = proc
+            if not _ec_announced:
+                _ec_announced = True
+                print("(echo cancellation on — the mic can't hear Mantrin's own voice)",
+                      flush=True)
+            return True
+        if proc.poll() is not None:
+            return False
+        time.sleep(0.1)
+    proc.terminate()
+    return False
+
+
+def _stop_echo_cancel() -> None:
+    global _ec_proc
+    if _ec_proc is not None and _ec_proc.poll() is None:
+        _ec_proc.terminate()
+        try:
+            _ec_proc.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            _ec_proc.kill()
+    _ec_proc = None
 
 
 def echo_cancelled() -> bool:
-    """Whether the echo-cancel nodes are up. Checked once per process — the
-    audio topology does not change under a running daemon."""
-    global _ec_checked
-    if _ec_checked is None:
-        _ec_checked = False
-        if shutil.which("pw-cli") and shutil.which("pw-record") and shutil.which("pw-play"):
-            try:
-                nodes = subprocess.run(
-                    ["pw-cli", "ls", "Node"], capture_output=True, text=True, timeout=5
-                ).stdout
-                _ec_checked = EC_SOURCE in nodes and EC_SINK in nodes
-            except (OSError, subprocess.TimeoutExpired):
-                pass
-        if _ec_checked:
-            print("(echo cancellation on — the mic can't hear Mantrin's own voice)",
-                  flush=True)
-    return _ec_checked
+    """Whether the canceller is up right now (it lives with the Mic)."""
+    return _ec_proc is not None and _ec_proc.poll() is None
 
 
 # ---------------------------------------------------------------- capture
 
 
-def _record_command() -> list[str]:
-    if echo_cancelled():
+def _record_command(ec: bool) -> list[str]:
+    if ec:
         return ["pw-record", "--target", EC_SOURCE, "--format=s16",
                 f"--rate={SAMPLE_RATE}", "--channels=1", "-"]
     if shutil.which("arecord"):
@@ -105,8 +151,11 @@ class Mic:
     """
 
     def __init__(self):
+        # The canceller shares the Mic's lifetime: open the device, bring up
+        # the ears' selective deafness; close it, and nothing captures at all.
+        self._ec = _start_echo_cancel()
         self._proc = subprocess.Popen(
-            _record_command(), stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+            _record_command(self._ec), stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
             bufsize=0,
         )
         self._closed = False
@@ -134,6 +183,7 @@ class Mic:
                 self._proc.wait(timeout=2)
             except subprocess.TimeoutExpired:
                 self._proc.kill()
+        _stop_echo_cancel()
 
     def __enter__(self) -> "Mic":
         return self
@@ -660,7 +710,7 @@ def probe() -> str | None:
     """Return None if audio works, else a human-readable reason it doesn't.
     Called by `mantrin setup` and at daemon start so failures name themselves."""
     try:
-        _record_command()
+        _record_command(ec=False)       # is a plain recorder even present?
         _play_command(SAMPLE_RATE)
     except AudioUnavailable as e:
         return str(e)
