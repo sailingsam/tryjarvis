@@ -51,8 +51,11 @@ _BARGE_IN_ONSET_MS = 360        # sustained: a false stop costs the whole reply
 # How long after playback starts before the *energy* path may interrupt at all.
 # Covers player start-up silence plus one onset window, so the own-voice bar has
 # heard actual playback before anything is measured against it. The wake word
-# is exempt — it works from the first frame.
+# is exempt — it works from the first frame. With echo cancellation the mic
+# barely hears Mantrin at all, so only the canceller's own convergence moment
+# needs covering.
 _BARGE_IN_BLIND_MS = 900
+_BARGE_IN_BLIND_EC_MS = 300
 
 # How long to wait for the command after the wake word before deciding nobody is
 # talking to us. Long enough for "hey jarvis" … *thinks* … "remind me to…", short
@@ -338,6 +341,7 @@ class VoiceIO:
         own_voice = 0
         run = 0
         started = time.monotonic()
+        blind_ms = _BARGE_IN_BLIND_EC_MS if audio.echo_cancelled() else _BARGE_IN_BLIND_MS
 
         for frame in self._frames:
             if playback.stopped or not playback.playing:
@@ -368,7 +372,7 @@ class VoiceIO:
             # exactly when Mantrin's opening word arrives — and the lagged
             # tracking loses that race every time. Until the bar has heard
             # real playback, only the wake word can interrupt.
-            if run >= onset_needed and (time.monotonic() - started) * 1000 > _BARGE_IN_BLIND_MS:
+            if run >= onset_needed and (time.monotonic() - started) * 1000 > blind_ms:
                 playback.stop()
                 print(f"(barge-in: voice — peak {peak} over bar {threshold}, "
                       f"own voice {own_voice})", flush=True)

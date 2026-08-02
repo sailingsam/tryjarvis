@@ -176,6 +176,55 @@ def _install_launcher() -> Path | None:
     return launcher
 
 
+_EC_CONF = """\
+# Mantrin: echo-cancelled microphone (WebRTC AEC — the engine Chrome/Meet use).
+# Mantrin plays its voice into mantrin.ec.sink and records from
+# mantrin.ec.source; the module subtracts the one from the other, so the mic
+# stops hearing Mantrin. Delete this file to undo.
+context.modules = [
+    {   name = libpipewire-module-echo-cancel
+        args = {
+            library.name = aec/libspa-aec-webrtc
+            source.props = {
+                node.name        = "mantrin.ec.source"
+                node.description = "Mantrin echo-cancelled mic"
+            }
+            sink.props = {
+                node.name        = "mantrin.ec.sink"
+                node.description = "Mantrin voice (echo-cancelled)"
+            }
+        }
+    }
+]
+"""
+
+
+def _install_echo_cancel() -> None:
+    """Give the microphone selective deafness to Mantrin's own voice.
+
+    Drops a PipeWire config that loads its echo-cancel module and restarts
+    the sound stack once. Skipped quietly when this isn't a PipeWire machine —
+    voice still works, barge-in just stays on the energy heuristic."""
+    module = Path("/usr/lib/x86_64-linux-gnu/pipewire-0.3/libpipewire-module-echo-cancel.so")
+    if not (shutil.which("pw-cli") and module.exists()):
+        return
+    conf = (Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+            / "pipewire" / "pipewire.conf.d" / "mantrin-echo-cancel.conf")
+    try:
+        if conf.exists() and conf.read_text() == _EC_CONF:
+            return                          # already in place; don't bounce audio
+        conf.parent.mkdir(parents=True, exist_ok=True)
+        conf.write_text(_EC_CONF)
+    except OSError as e:                    # pragma: no cover
+        print(f"(couldn't set up echo cancellation: {e})")
+        return
+    subprocess.run(["systemctl", "--user", "restart",
+                    "pipewire", "pipewire-pulse", "wireplumber"],
+                   capture_output=True)
+    time.sleep(2)                           # let the nodes come up
+    print("Echo cancellation is set up — the mic won't hear Mantrin's own voice.")
+
+
 def _install_tray_autostart(launcher: Path) -> None:
     """Put the status icon in the top bar at every login, and right now.
 
@@ -212,6 +261,7 @@ def install() -> int:
     if launcher:
         print("`mantrin` is now a command — works from any terminal.")
         _install_tray_autostart(launcher)
+    _install_echo_cancel()
     carried = _persist_shell_keys()
     if carried:
         print(f"Saved {', '.join(carried)} into {config.CONFIG_FILE} — a service "

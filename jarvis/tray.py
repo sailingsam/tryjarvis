@@ -119,9 +119,14 @@ def _mantrin(*args: str) -> None:
 
 
 def _already_running() -> bool:
+    """True only if the recorded pid is alive AND is actually a tray. After a
+    reboot the old pid may belong to any process the kernel handed it to —
+    trusting the number alone would make the tray silently refuse to start."""
     try:
-        os.kill(int(PID_FILE.read_text().strip()), 0)
-        return True
+        pid = int(PID_FILE.read_text().strip())
+        os.kill(pid, 0)
+        cmdline = Path(f"/proc/{pid}/cmdline").read_bytes().decode(errors="replace")
+        return "tray" in cmdline and ("mantrin" in cmdline or "jarvis" in cmdline)
     except (OSError, ValueError):
         return False
 

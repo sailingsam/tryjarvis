@@ -44,10 +44,47 @@ class AudioUnavailable(RuntimeError):
     """No way to reach the microphone or speaker on this machine."""
 
 
+# ----------------------------------------------------- echo cancellation
+
+# Node names created by the PipeWire echo-cancel module (WebRTC AEC — the same
+# engine Chrome uses for calls). `mantrin install` drops the config that loads
+# it. When these nodes exist, Mantrin records from the cancelled source and
+# speaks through the cancelled sink, so the microphone stops hearing Mantrin —
+# measured on real hardware: its own voice comes back ~12x quieter, at room-
+# noise level. Without the nodes everything falls back to the plain devices.
+EC_SOURCE = "mantrin.ec.source"
+EC_SINK = "mantrin.ec.sink"
+
+_ec_checked: bool | None = None
+
+
+def echo_cancelled() -> bool:
+    """Whether the echo-cancel nodes are up. Checked once per process — the
+    audio topology does not change under a running daemon."""
+    global _ec_checked
+    if _ec_checked is None:
+        _ec_checked = False
+        if shutil.which("pw-cli") and shutil.which("pw-record") and shutil.which("pw-play"):
+            try:
+                nodes = subprocess.run(
+                    ["pw-cli", "ls", "Node"], capture_output=True, text=True, timeout=5
+                ).stdout
+                _ec_checked = EC_SOURCE in nodes and EC_SINK in nodes
+            except (OSError, subprocess.TimeoutExpired):
+                pass
+        if _ec_checked:
+            print("(echo cancellation on — the mic can't hear Mantrin's own voice)",
+                  flush=True)
+    return _ec_checked
+
+
 # ---------------------------------------------------------------- capture
 
 
 def _record_command() -> list[str]:
+    if echo_cancelled():
+        return ["pw-record", "--target", EC_SOURCE, "--format=s16",
+                f"--rate={SAMPLE_RATE}", "--channels=1", "-"]
     if shutil.which("arecord"):
         return ["arecord", "-q", "-t", "raw", "-f", "S16_LE",
                 "-r", str(SAMPLE_RATE), "-c", "1"]
@@ -395,6 +432,12 @@ class Endpointer:
 
 
 def _play_command(sample_rate: int) -> list[str]:
+    if echo_cancelled():
+        # Speaking through the cancelled sink is what MAKES the cancellation:
+        # the module subtracts exactly what passes through here from the mic.
+        # A reply played to the plain sink would be invisible to the canceller.
+        return ["pw-play", "--target", EC_SINK, "--format=s16",
+                f"--rate={sample_rate}", "--channels=1", "-"]
     if shutil.which("aplay"):
         return ["aplay", "-q", "-t", "raw", "-f", "S16_LE",
                 "-r", str(sample_rate), "-c", "1"]
