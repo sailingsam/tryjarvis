@@ -10,6 +10,11 @@ and then acts on them.
 Not a recorder and not a chat window. You say something once; it holds onto it
 and does something about it.
 
+> **Status: beta.** It runs my day, every day — but it's young: Linux only for
+> now, version 0.x, and things change without ceremony. If you're the kind of
+> person who enjoys software at this stage, welcome; if you need boring and
+> settled, check back in a few releases.
+
 ## What's here
 
 ```

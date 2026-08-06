@@ -520,6 +520,10 @@ footer{position:relative;border-top:1px solid var(--hair);overflow:hidden;
 .sublink{display:inline-flex;align-items:center;gap:.45rem;color:var(--muted);transition:color .3s}
 .sublink svg{width:1.05rem;height:1.05rem;fill:currentColor;flex:none}
 .sublink:hover{color:var(--amber-dp)}
+/* the honest little flag: it works, it's young */
+.betapill{font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;color:var(--amber-dp);
+  border:1px solid oklch(0.74 0.155 72/.45);border-radius:99px;padding:.12rem .5rem;
+  vertical-align:.14em;margin-left:.35rem}
 .wordmark{display:block;width:100%;margin-block:clamp(1.2rem,3.5vh,2.2rem) clamp(.6rem,1.5vh,1rem)}
 .wordmark text{font-family:'Spectral',Georgia,serif;font-weight:300;fill:var(--ink)}
 .wordmark .pt{fill:var(--amber)}
@@ -575,7 +579,7 @@ footer{position:relative;border-top:1px solid var(--hair);overflow:hidden;
 <div class="grain" aria-hidden="true"></div>
 
 <nav class="nav"><div class="wrap">
-  <span class="brand"><img class="mark" src="logo.svg" alt="" width="24" height="24" /> Mantrin</span>
+  <span class="brand"><img class="mark" src="logo.svg" alt="" width="24" height="24" /> Mantrin <span class="betapill mono">beta</span></span>
   <span class="navlinks">
     <a class="anav mono" href="#plug">unplugs</a>
     <button type="button" class="tgl" id="themetgl" aria-label="Toggle dark mode">
