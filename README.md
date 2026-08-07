@@ -39,20 +39,21 @@ understanding built on it.
 ## Install
 
 ```bash
-python3 -m venv .venv
-./.venv/bin/pip install -e ".[voice]"
+python3 -m venv .venv && source .venv/bin/activate
+pip install "mantrin[voice]"
 export ANTHROPIC_API_KEY=...
 ```
 
 `[voice]` is the microphone layer. The heavy local providers install only if
 you pick them: `mantrin setup` offers to fetch what your choices need, or grab
-everything up front with `pip install -e ".[all]"`.
+everything up front with `pip install "mantrin[all]"`. Working from a checkout
+instead: `pip install -e ".[all]"` — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Talk to it
 
 ```bash
-./.venv/bin/mantrin setup      # choose whose ears and voice; save any keys
-./.venv/bin/mantrin            # then just say "hey jarvis"
+mantrin setup      # choose whose ears and voice; save any keys
+mantrin            # then just say "hey jarvis"
 ```
 
 The default stack is free and entirely local — Whisper for hearing, Piper for
@@ -67,8 +68,8 @@ the wake word every time.
 ### Type instead
 
 ```bash
-./.venv/bin/mantrin --text        # keyboard in, text out
-./.venv/bin/mantrin --dictate     # dictate with your own app, spoken reply
+mantrin --text        # keyboard in, text out
+mantrin --dictate     # dictate with your own app, spoken reply
 ```
 
 `--dictate` is for Wispr Flow's app, superwhisper, Willow and the rest. They own
@@ -78,8 +79,8 @@ integrate with — Mantrin reads the line and answers out loud.
 ### Swap providers
 
 ```bash
-./.venv/bin/mantrin --stt grok --tts openai
-./.venv/bin/mantrin --timings     # where each turn's time actually went
+mantrin --stt grok --tts openai
+mantrin --timings     # where each turn's time actually went
 ```
 
 Settings live in `~/.config/mantrin/config.json` (mode 0600, it holds keys).
@@ -91,12 +92,12 @@ Adding a provider is one class with one method, plus a line in
 ## See what it knows
 
 ```bash
-./.venv/bin/mantrin memory        # every fact, and where it came from
-./.venv/bin/mantrin commitments   # open loops it is tracking
-./.venv/bin/mantrin brief         # a short daily brief
+mantrin memory        # every fact, and where it came from
+mantrin commitments   # open loops it is tracking
+mantrin brief         # a short daily brief
 ```
 
-Memory is SQLite at `data/jarvis.db` — open it with `sqlite3` and you can read
+Memory is SQLite (`data/jarvis.db` in a checkout, `~/.local/share/mantrin/` when installed) — open it with `sqlite3` and you can read
 everything it knows about you. Delete the file to give it amnesia.
 
 ## Integrations
@@ -117,14 +118,14 @@ Only one process may hold those connections — two would mean two WhatsApp clie
 on one set of credentials — which is why voice runs there rather than in the CLI.
 
 ```bash
-./.venv/bin/mantrin daemon        # run it in the foreground to watch it
-./.venv/bin/mantrin --no-voice    # don't hold the microphone
+mantrin daemon        # run it in the foreground to watch it
+mantrin --no-voice    # don't hold the microphone
 ```
 
 ### Run at every login
 
 ```bash
-./.venv/bin/mantrin install
+mantrin install
 ```
 
 On Linux this installs a systemd user service and puts a `mantrin` command on
