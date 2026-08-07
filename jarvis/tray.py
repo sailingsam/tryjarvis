@@ -188,10 +188,20 @@ def main() -> int:
     menu.append(pause_item)
     menu.append(Gtk.SeparatorMenuItem())
 
-    for label, args in (("Restart Mantrin", ("restart",)), ("Stop Mantrin", ("stop",))):
-        item = Gtk.MenuItem(label=label)
-        item.connect("activate", lambda _w, a=args: _mantrin(*a))
-        menu.append(item)
+    restart_item = Gtk.MenuItem(label="Restart Mantrin")
+    restart_item.connect("activate", lambda _w: _mantrin("restart"))
+    menu.append(restart_item)
+
+    # One button, two faces: Stop while it runs, Start while it doesn't. A
+    # static Stop on a stopped daemon is a button that does nothing — the
+    # menu should always offer the action that currently makes sense.
+    power_item = Gtk.MenuItem(label="Stop Mantrin")
+    power = {"running": True}
+
+    def on_power(_w) -> None:
+        _mantrin("stop" if power["running"] else "start")
+    power_item.connect("activate", on_power)
+    menu.append(power_item)
 
     # Quit means quit: daemon, microphone, icon — all of it. The one thing
     # this menu must never do is remove the visible face of an always-on
@@ -214,6 +224,15 @@ def main() -> int:
             last["icon"] = icon
             indicator.set_icon_full(f"mantrin-{icon}", text)
         status_item.set_label(text)
+        # Alive (answering, or still starting up) → offer Stop; actually down
+        # → offer Start. Judged by the socket, not the icon: a paused daemon
+        # is grey but very much running. Restart and Pause only mean
+        # something on a live daemon, so they grey out with it.
+        running = _daemon_answering() or _read_state()[0] == "starting"
+        power["running"] = running
+        power_item.set_label("Stop Mantrin" if running else "Start Mantrin")
+        restart_item.set_sensitive(running)
+        pause_item.set_sensitive(running)
         updating["pause"] = True
         pause_item.set_active(config.MIC_PAUSE_FILE.exists())
         updating["pause"] = False
