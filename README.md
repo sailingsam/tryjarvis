@@ -136,8 +136,9 @@ remember — `mantrin status`, `mantrin logs`, `mantrin restart`, `mantrin stop`
 
 It also puts a status icon in the top bar (`mantrin tray`, auto-started at
 login): green means listening for the wake word, blue means mid-conversation,
-yellow starting, red something's wrong. The menu holds a **Pause microphone**
-hard mute — while it's on, even the wake word is ignored.
+yellow starting, red something's wrong. The menu holds a **Mute microphone**
+hard mute — the mic device is released (your OS's mic light goes out) and even
+the wake word is ignored, while the brain and connections keep working.
 
 ## Contributing
 

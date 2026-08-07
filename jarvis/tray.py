@@ -10,8 +10,9 @@ always-on microphone:
     grey    stopped, or the microphone is paused
 
 The menu carries the one control that must never be more than a click away:
-**Pause microphone** — a hard mute that ignores even the wake word until
-turned back on (it drops a flag file the voice loop checks; no protocol).
+**Mute microphone** — a hard mute that releases the device and ignores even
+the wake word until turned back on, while the brain and connections keep
+working (it drops a flag file the voice loop checks; no protocol).
 
 This process is deliberately separate from the daemon. The daemon is a systemd
 service that may outlive any desktop session; this is a desktop ornament that
@@ -61,7 +62,7 @@ _STATE_TEXT = {
     "speaking": "Speaking",
     "starting": "Starting up…",
     "error": "Something's wrong",
-    "paused": "Microphone paused",
+    "paused": "Mic muted — Mantrin is awake, just not listening",
     "off": "Stopped",
 }
 
@@ -100,7 +101,7 @@ def current_status() -> tuple[str, str]:
     # claiming muted while the device is still held is exactly the lie this
     # feature exists to avoid.
     if config.MIC_PAUSE_FILE.exists() and state != "paused":
-        detail = "muting — finishing the current exchange"
+        detail = "muting the mic — finishing the current exchange"
     if not _daemon_answering():
         if state == "starting":
             pass                        # socket comes up last; yellow is the truth
@@ -173,7 +174,10 @@ def main() -> int:
     menu.append(status_item)
     menu.append(Gtk.SeparatorMenuItem())
 
-    pause_item = Gtk.CheckMenuItem(label="Pause microphone")
+    # "Mute", not "pause": Zoom taught everyone that muted means "the mic is
+    # off but I'm still in the meeting". Pause read as "Mantrin is paused",
+    # which it isn't — the brain, WhatsApp and reminders keep working.
+    pause_item = Gtk.CheckMenuItem(label="Mute microphone — Mantrin stays awake")
     updating = {"pause": False}         # guard: set_active() also fires 'toggled'
 
     def on_pause(item) -> None:
