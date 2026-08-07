@@ -264,6 +264,7 @@ export async function startWhatsAppConnection(
 
       logger.info(`Storing ${chats.length} chats from history sync.`);
       chats.forEach((chat) =>
+        chat.id &&
         storeChat({
           jid: chat.id,
           name: chat.name,
@@ -346,7 +347,7 @@ export async function sendWhatsAppMessage(
   logger: P.Logger,
   recipientJid: string,
   text: string
-): Promise<proto.WebMessageInfo | void> {
+): Promise<WAMessage | void> {
   if (!recipientJid || !text) {
     logger.error("Cannot send message: missing recipient or text.");
     return;
@@ -393,7 +394,7 @@ export async function editWhatsAppMessage(
   recipientJid: string,
   messageId: string,
   newText: string
-): Promise<proto.WebMessageInfo | void> {
+): Promise<WAMessage | void> {
   if (!recipientJid || !messageId || !newText) {
     logger.error("Cannot edit message: missing recipient, message id or text.");
     return;

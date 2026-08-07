@@ -1,15 +1,19 @@
 {
   "name": "mantrin-whatsapp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Mantrin's WhatsApp bridge — an MCP server over Baileys. Forked from jlucaso1/whatsapp-mcp-ts.",
-  "main": "src/main.ts",
+  "main": "dist/main.js",
   "bin": {
-    "mantrin-whatsapp": "src/main.ts"
+    "mantrin-whatsapp": "dist/main.js"
   },
   "files": [
-    "src",
+    "dist",
     "README.md"
   ],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
   "type": "module",
   "keywords": [
     "whatsapp",
