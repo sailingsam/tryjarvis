@@ -193,8 +193,15 @@ def main() -> int:
         item.connect("activate", lambda _w, a=args: _mantrin(*a))
         menu.append(item)
 
-    quit_item = Gtk.MenuItem(label="Quit tray")
-    quit_item.connect("activate", lambda _w: Gtk.main_quit())
+    # Quit means quit: daemon, microphone, icon — all of it. The one thing
+    # this menu must never do is remove the visible face of an always-on
+    # microphone while leaving the ears running.
+    quit_item = Gtk.MenuItem(label="Quit Mantrin")
+
+    def on_quit(_w) -> None:
+        _mantrin("stop")
+        Gtk.main_quit()
+    quit_item.connect("activate", on_quit)
     menu.append(quit_item)
     menu.show_all()
     indicator.set_menu(menu)
