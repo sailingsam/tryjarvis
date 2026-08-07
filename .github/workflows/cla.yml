@@ -24,7 +24,9 @@ jobs:
         with:
           path-to-signatures: '.github/signatures/cla.json'
           path-to-document: 'https://github.com/sailingsam/tryjarvis/blob/main/CLA.md'
-          branch: 'main'
+          # Signatures land on their own branch: main stays clean, no local
+          # checkout ever falls behind over paperwork.
+          branch: 'cla-signatures'
           allowlist: 'sailingsam,dependabot[bot]'
           custom-notsigned-comment: >
             Thanks for the PR! One-time step before we can merge: please read
