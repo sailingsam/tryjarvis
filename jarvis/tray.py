@@ -177,7 +177,7 @@ def main() -> int:
     # "Mute", not "pause": Zoom taught everyone that muted means "the mic is
     # off but I'm still in the meeting". Pause read as "Mantrin is paused",
     # which it isn't — the brain, WhatsApp and reminders keep working.
-    pause_item = Gtk.CheckMenuItem(label="Mute microphone — Mantrin stays awake")
+    pause_item = Gtk.CheckMenuItem(label="Mute microphone")
     updating = {"pause": False}         # guard: set_active() also fires 'toggled'
 
     def on_pause(item) -> None:
