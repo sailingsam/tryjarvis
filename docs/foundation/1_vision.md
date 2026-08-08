@@ -1,8 +1,11 @@
-# Project Jarvis
+# Mantrin
 
 ## Vision
 
-> *"Everyone deserves a Jarvis."*
+> *"Everyone deserves a chief of staff — your personal Jarvis."*
+
+(Mantrin is the company and the product. Jarvis is the persona — the name it
+answers to. The dual naming is deliberate; these docs use both.)
 
 ---
 
@@ -108,6 +111,40 @@ It should feel less like software and more like a trusted companion.
 
 ---
 
+## The Big Idea
+
+> *Don't connect the apps. Connect the devices.*
+
+Plenty of platforms already connect apps.
+
+Automation tools chain them.
+
+Agent frameworks wrap their APIs.
+
+That race is crowded, and it misses the point.
+
+Your life doesn't happen in apps.
+
+It happens across devices.
+
+Laptop at work.
+
+Phone in your pocket.
+
+Car on the commute.
+
+A watch, a speaker, a home.
+
+Each one currently has its own assistant, its own context, its own amnesia.
+
+Mantrin's bet is a **continuous intelligence layer across the devices
+themselves** — one brain that follows you, so the context you built on one
+screen is simply *there* on the next.
+
+Apps are plumbing. Devices are where you live.
+
+---
+
 ## Our Principles
 
 ### Context over conversations
@@ -200,25 +237,27 @@ Automation should feel invisible.
 
 ---
 
-## Why Mobile First
+## Why Laptop First
 
-The smartphone already represents most of a person's digital life.
+We originally assumed mobile first. Building taught us otherwise.
 
-It knows:
+A cross-device brain has to exist somewhere first — and the laptop is the
+only device that lets an always-on assistant actually be *always on*:
 
-* where you are
-* who you talk to
-* what your calendar looks like
-* which notifications matter
-* what you're working on
-* what apps you use
-* when you're travelling
-* when you're sleeping
-* when you're busy
+* the microphone can stay open, with a local wake word guarding it
+* the OS lets a daemon live forever (systemd) — phones kill background apps
+* connections (WhatsApp, calendar, tools) can stay warm around the clock
+* the people who try software at this stage live in a terminal anyway
+* everything can run locally, which is where trust starts
 
-Instead of trying to connect dozens of devices from day one, we'll start with the one device that already understands the most about its owner.
+So the laptop is the beachhead: prove the brain, the memory and the trust
+model on the most permissive device.
 
-Mobile becomes the first interface.
+The phone comes next — and that is the moment the real product appears,
+because the second device is where **continuity** becomes visible: what you
+said at the desk is simply known in your pocket.
+
+Laptop is the first interface.
 
 Not the final one.
 
@@ -264,9 +303,11 @@ One where everyone has their own Jarvis.
 
 ## What We Are Not Building
 
-Jarvis is not:
+Mantrin is not:
 
 - A ChatGPT competitor
+- An app-integration platform
+- An MCP wrapper
 - An AI coding assistant
 - A smart home platform
 - A search engine
@@ -276,3 +317,22 @@ Jarvis is not:
 These may become capabilities.
 
 They are not the product.
+
+The product is one intelligence that follows you across your devices,
+understands your context, and acts before you have to ask.
+
+---
+
+## Where We Are
+
+Honesty is part of the design, so the docs say it plainly.
+
+**Built and running today** (Linux, `pip install mantrin`): the always-on
+voice daemon, wake word and endpointing, cross-session memory with
+supersession, real actions (WhatsApp and any MCP tool) behind a consent
+gate, swappable ears/voice/brain, the tray with an OS-verifiable mute.
+
+**Next**: proactivity — the scheduler, reminders, the morning brief; the
+assistant that speaks first. Then the phone, where continuity begins.
+
+**Vision**: car, wearables, home — the same one brain, everywhere.

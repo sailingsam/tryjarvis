@@ -1,8 +1,9 @@
-# Project Jarvis
+# Mantrin
 
 # Mental Model
 
-> Before writing a single line of code, we must answer one question.
+> Written before the first line of code, to answer one question — and kept
+> because the answer survived contact with the code.
 
 **What exactly is Jarvis?**
 
@@ -61,6 +62,10 @@ Jarvis is a continuous intelligence loop.
 The loop never stops.
 
 However, **AI models are not involved in every step.**
+
+(Status: the loop runs today for user-initiated turns — voice in, memory,
+tools, learning. What's not yet built is the loop *starting itself*:
+events and the scheduler, i.e. proactivity. That is the next build.)
 
 ------------------------------------------------------------------------
 

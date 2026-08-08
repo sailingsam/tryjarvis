@@ -1,294 +1,269 @@
-# Project Jarvis
+# Mantrin
 
 # System Architecture
 
-> This document defines the high-level architecture of Jarvis. It
-> focuses on responsibilities and information flow, not implementation
-> details.
+> This document is in two parts on purpose.
+>
+> **Part One** is the architecture that exists — shipped, running,
+> `pip install mantrin`.
+>
+> **Part Two** is where it goes as devices are added.
+>
+> Mixing the two is how docs start lying.
 
 ------------------------------------------------------------------------
 
 # Core Principle
 
-Jarvis is **not** an Android application.
+**One Brain. Many Runtimes.**
 
-Jarvis is **not** a desktop application.
+Devices are interfaces. Intelligence is singular.
 
-Jarvis is a **Personal Intelligence System**.
-
-Applications are simply different interfaces into the same intelligence.
+Adding a device must never mean adding an assistant.
 
 ------------------------------------------------------------------------
 
-# Architecture Overview
+# Part One — The Architecture Today
 
-                     User
-                       │
-              Voice / Text / UI
-                       │
-                  Client Runtime
-                       │
-                Context Capture
-                       │
-                  Event Filter
-                       │
-                 Event Gateway
-                       │
-                ┌─────────────┐
-                │ Jarvis Core │
-                └─────────────┘
-                       │
-         ┌────────┬────────┬────────┐
-         │        │        │        │
-      Memory   Context   Planner  Learning
-         │        │        │
-         └────────┴────────┘
-                       │
-                 Model Router
-                       │
-             Tools / AI Providers
-                       │
-                  Runtime → User
+One device (a Linux laptop), one process that never sleeps, and a desktop
+that can always see what the ears are doing.
+
+                          "hey jarvis"
+                               │
+        ┌── desktop session ───────────────────────────┐
+        │   tray icon (own process, GTK)               │
+        │   reads state.json · drops the mute flag     │
+        └──────────────────────────────────────────────┘
+                               │  files, not protocol
+        ┌── the daemon (systemd user service) ─────────┐
+        │                                              │
+        │   VOICE PIPELINE                             │
+        │   mic → echo cancel → endpointing → wake gate│
+        │       → STT ─┐            ┌─ TTS → speaker   │
+        │              ▼            │                  │
+        │   BRAIN ── reply pass ────┘                  │
+        │        └─ extract pass (background)          │
+        │                                              │
+        │   MEMORY (SQLite)     TOOLS                  │
+        │   facts · directives  WhatsApp · web · X     │
+        │   commitments         any MCP server         │
+        │   exchanges           consent gate           │
+        └──────────────────────────────────────────────┘
 
 ------------------------------------------------------------------------
 
-# Three Layers
+## The daemon
 
-## 1. Runtime Layer
+Everything lives in one always-on process, installed as a systemd user
+service: starts at login, restarts on a crash, survives reboots.
 
-A Runtime adapts Jarvis to a specific platform.
+Why one process:
 
-Examples
+-   Connections must stay warm. WhatsApp captures messages around the
+    clock; two processes would mean two clients on one set of
+    credentials, which kills the session for both.
+-   The microphone needs exactly one owner.
+-   Everything else — the CLI, text mode — is a thin client on a Unix
+    socket, talking to the same brain.
 
--   Android Runtime
--   Desktop Runtime
--   Wear Runtime
--   Car Runtime
+------------------------------------------------------------------------
 
-A Runtime knows everything about its operating system.
+## The voice pipeline
 
-Jarvis Core knows nothing about operating systems.
+The pipeline exists to answer one question honestly: **when is audio
+allowed to become text?**
 
-Responsibilities
+-   The wake word runs locally. Until it fires, frames are dropped —
+    nothing is transcribed, stored, or sent.
+-   Endpointing (VAD) decides when you finished talking. No button, no
+    time limit. A dangling "his name was ummm…" is waited out, not cut.
+-   Barge-in: speak over Mantrin and it stops, like a person.
+-   Echo cancellation (WebRTC AEC via PipeWire) lives exactly as long as
+    the mic does. Mute from the tray and the recorder process dies — the
+    OS mic light goes out because nothing is capturing. Trust is
+    OS-verifiable, not claimed.
+-   The gate is also the cost boundary: a `transcribed_seconds` counter
+    shows exactly how much audio ever reached the recogniser.
 
--   Capture user input
--   Expose device capabilities
+------------------------------------------------------------------------
+
+## The brain
+
+Two passes per turn, deliberately separate:
+
+**Reply pass** — answer naturally, using tools when they help. It sees a
+window of recent exchanges, the most relevant remembered facts, every
+standing directive, and anything from the archive that looks related.
+
+**Extract pass** — a background call that decides what was worth
+keeping: new facts, new directives, commitments opened or closed, old
+entries now contradicted.
+
+The user never waits on bookkeeping, and the conversation never ships
+its whole life story: the working window stays small forever, and older
+exchanges come back by meaning when referred to.
+
+The system prompt is split static/dynamic so the unchanging part is
+cached by the provider. Simple turns run in under two seconds.
+
+------------------------------------------------------------------------
+
+## Memory
+
+SQLite, on the user's disk. The one thing never rented.
+
+Four kinds of knowledge, each stamped with where it came from:
+
+-   **Facts** — stable truths ("User is vegetarian")
+-   **Directives** — standing orders to the assistant ("keep replies
+    short"), injected into every turn
+-   **Commitments** — open loops that still need to happen
+-   **Exchanges** — the conversation itself, archived out of the window,
+    searchable by meaning
+
+Recall fuses keyword search (FTS5) with local embeddings.
+
+Memory does not merely grow: a contradicted fact is **superseded** —
+out of recall, kept on disk with its provenance. An append-only memory
+eventually argues with its own user.
+
+------------------------------------------------------------------------
+
+## Tools and consent
+
+Real actions — WhatsApp, web search, X, and any MCP server the user
+plugs in — share one registry.
+
+Anything irreversible sits behind a consent gate:
+
+-   the model phrases the confirmation in human terms (names, quoted
+    content — never a 14-digit id),
+-   a small model judges the answer by **intent**, not keywords —
+    "no, I said yes" sends; "yes, but change it first" does not,
+-   when unsure, it re-asks. A wrong send cannot be unsent; a re-ask
+    costs two seconds.
+
+------------------------------------------------------------------------
+
+## Providers
+
+Ears, voice, brain, embeddings — all rented, all behind one-method
+interfaces, all swappable in setup: local Whisper or hosted ears, local
+Piper or hosted voices.
+
+Adding a provider is one class and one registry line.
+
+Dependencies follow choices: nobody downloads a local model runtime for
+a hosted provider they picked instead.
+
+------------------------------------------------------------------------
+
+## The tray
+
+A separate process, on the system's own GTK — because the daemon may
+outlive any desktop session, and the desktop may kill its ornaments
+freely.
+
+They meet at two files: `state.json` (daemon writes, tray reads) and the
+mute flag (tray writes, voice loop reads). Files, not a protocol:
+readable after either side dies, debuggable with `cat`, atomic by
+rename.
+
+Green means listening. Blue means mid-conversation. Grey means muted or
+stopped — and muted means the device is *released*, witnessed by the
+OS's own indicator.
+
+------------------------------------------------------------------------
+
+## Deliberately not here yet
+
+-   **The event system and scheduler** — proactivity is the next build:
+    reminders, the morning brief, the assistant that speaks first.
+-   **A model router** — one model family serves today. A router earns
+    its place when there is something real to route between.
+-   **The Runtime split** — today the desktop runtime and the core are
+    one process, because there is one device. The seam is drawn (the
+    brain never touches the OS; io/, audio, tray are the only parts that
+    do), and it splits when the second device arrives.
+
+------------------------------------------------------------------------
+
+# Part Two — Where It Goes
+
+The laptop proves the brain. Then the brain leaves the laptop.
+
+------------------------------------------------------------------------
+
+## Runtimes
+
+A Runtime adapts Mantrin to a platform. It knows everything about its
+operating system; the Core knows nothing about operating systems.
+
+    Android Runtime · Desktop Runtime · Wear Runtime · Car Runtime
+
+Responsibilities:
+
+-   Capture input (voice, text, notifications)
+-   Expose the device's capabilities
 -   Receive platform events
 -   Handle permissions
 -   Deliver responses
 
-------------------------------------------------------------------------
-
-## 2. Jarvis Core
-
-The Core is platform independent.
-
-It should run unchanged regardless of whether the client is Android,
-Desktop or a future device.
-
-The Core has four responsibilities.
-
-### Memory
-
-Stores long-term knowledge.
-
-People.
-
-Projects.
-
-Preferences.
-
-Goals.
-
-Relationships.
-
-Habits.
+Business logic never belongs inside a Runtime.
 
 ------------------------------------------------------------------------
 
-### Context
+## One brain across devices
 
-Represents what matters **right now**.
+When the second device arrives, the Core becomes a service the Runtimes
+share — the same memory, the same commitments, the same understanding,
+reachable from every screen.
 
-Current task.
+                      Mantrin Core
 
-Current device.
+                Memory · Context · Planner · Learning
 
-Current application.
+              /            |             \
 
-Current conversation.
+        Android         Desktop          Wear
+        Runtime         Runtime          Runtime
 
-Current location (if available).
-
-Context is temporary.
-
-------------------------------------------------------------------------
-
-### Planner
-
-Transforms understanding into decisions.
-
-Possible outcomes
-
--   Reply
--   Ask a question
--   Execute a tool
--   Wait
--   Ignore
-
-The Planner always prefers deterministic execution before AI reasoning.
+Continuity is the product: what you said at the desk is simply known in
+your pocket.
 
 ------------------------------------------------------------------------
 
-### Learning
+## Events
 
-Updates memory after every completed interaction.
+Proactivity thinks in events, not APIs:
 
-Learning compounds over time.
+    User spoke · Calendar updated · Reminder due · Flight delayed
+
+An Event Filter removes noise before anything reaches the Core — a
+battery percentage change is not a thought. Most events never require
+AI. Filtering keeps the system fast, cheap, and privacy-friendly.
 
 ------------------------------------------------------------------------
 
-## 3. Execution Layer
+## Model Router
 
-The execution layer connects Jarvis to external intelligence and
-external systems.
-
-### Model Router
-
-Chooses the best provider based on
-
--   Quality
--   Cost
--   Latency
--   Availability
+When multiple model families genuinely serve, a router chooses by
+quality, cost, latency, and availability.
 
 Providers are replaceable.
 
-Jarvis is not.
+Mantrin is not.
 
 ------------------------------------------------------------------------
 
-### Tool Layer
+## Capabilities
 
-Tools expose capabilities.
+The Planner thinks in capabilities, not platforms:
 
-Examples
+    Call Person
 
--   Call Person
--   Send Message
--   Calendar
--   Browser
--   Files
--   Navigation
--   Music
-
-The Planner thinks in capabilities.
-
-Each Runtime implements those capabilities differently.
-
-------------------------------------------------------------------------
-
-# Information Lifecycle
-
-Every interaction follows the same lifecycle.
-
-    User
-
-    ↓
-
-    Runtime
-
-    ↓
-
-    Context Capture
-
-    ↓
-
-    Event Filter
-
-    ↓
-
-    Event Gateway
-
-    ↓
-
-    Memory
-
-    ↓
-
-    Context
-
-    ↓
-
-    Planner
-
-    ↓
-
-    Need AI?
-
-    ├── No
-    │     ↓
-    │  Execute Tool
-    │
-    └── Yes
-          ↓
-     Model Router
-          ↓
-     Execute Tool (if needed)
-
-    ↓
-
-    Update Memory
-
-    ↓
-
-    Return Response
-
-------------------------------------------------------------------------
-
-# Context Capture
-
-Context is collected only from sources the user explicitly provides.
-
-Examples
-
--   Voice
--   Text
--   Calendar
--   Contacts
--   Notifications
--   Location
--   Current application
-
-Jarvis does not collect data simply because it can.
-
-It captures only the context required to help.
-
-------------------------------------------------------------------------
-
-# Event Filter
-
-Every operating system produces thousands of events.
-
-Most are irrelevant.
-
-The Event Filter removes noise before information reaches Jarvis Core.
-
-Examples to ignore
-
--   Battery changed from 98% to 97%
--   Random app notifications
--   Background system broadcasts
-
-Examples to keep
-
--   User interaction
--   Calendar changes
--   Reminder completed
--   Important notifications
--   Explicit commands
-
-Filtering keeps the system fast, cheap and privacy-friendly.
+Android: an intent. Desktop: a VoIP app. A future device: whatever is
+native there. The capability stays the same.
 
 ------------------------------------------------------------------------
 
@@ -300,28 +275,8 @@ Filtering keeps the system fast, cheap and privacy-friendly.
 -   AI is the last step.
 -   Tools execute; they do not think.
 -   Models are replaceable.
--   Trust is non-negotiable.
+-   Trust is non-negotiable — and OS-verifiable where possible.
 -   Business logic never belongs inside a Runtime.
-
-------------------------------------------------------------------------
-
-# Scaling
-
-Adding a new platform should only require a new Runtime.
-
-The Core should remain unchanged.
-
-                  Jarvis Core
-
-            Memory
-            Context
-            Planner
-            Learning
-
-          /      |       \
-
-     Android   Desktop   Wear
-     Runtime   Runtime   Runtime
 
 ------------------------------------------------------------------------
 

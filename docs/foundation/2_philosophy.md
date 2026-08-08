@@ -1,4 +1,4 @@
-# Project Jarvis
+# Mantrin
 
 # Product Philosophy
 

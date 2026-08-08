@@ -6,7 +6,18 @@ key isn't set yet is skipped at startup and lights up the day the key appears �
 so all of these can sit in your config from day one.
 
 Secrets go in the environment (or the project `.env`), never in `mcp.json`
-itself. After adding a key, restart the daemon: `./.venv/bin/python -m jarvis daemon`.
+itself. After adding a key: `mantrin restart`.
+
+## WhatsApp
+
+Send, receive, search chats — the flagship integration, and ours (see
+[whatsapp-bridge/](../whatsapp-bridge/)). No clone needed: the block in
+`mcp.example.json` runs it straight from npm via `npx -y mantrin-whatsapp`.
+
+One-time pairing: run `npx -y mantrin-whatsapp` yourself once, scan the QR
+with the phone, Ctrl+C. State (session, message db, logs) lives wherever
+`WHATSAPP_MCP_DATA_DIR` points — the example config uses
+`~/.local/share/mantrin/whatsapp`.
 
 ## Google Calendar
 
