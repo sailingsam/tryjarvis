@@ -1,0 +1,47 @@
+/* Mantrin brand, ported from site/index.html's OKLCH palette and type. */
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600&family=Spectral:wght@300;400;500&family=Spline+Sans+Mono:wght@400&display=swap');
+
+:root {
+	--sl-font: 'Manrope', system-ui, sans-serif;
+	--sl-font-mono: 'Spline Sans Mono', ui-monospace, monospace;
+
+	--sl-color-accent-low: oklch(0.95 0.03 82);
+	--sl-color-accent: oklch(0.6 0.16 64);
+	--sl-color-accent-high: oklch(0.32 0.06 62);
+
+	--sl-color-white: oklch(0.21 0.012 70);
+	--sl-color-gray-1: oklch(0.28 0.015 70);
+	--sl-color-gray-2: oklch(0.42 0.012 70);
+	--sl-color-gray-3: oklch(0.6 0.012 70);
+	--sl-color-gray-4: oklch(0.78 0.01 75);
+	--sl-color-gray-5: oklch(0.89 0.007 75);
+	--sl-color-gray-6: oklch(0.955 0.005 75);
+	--sl-color-gray-7: oklch(0.978 0.004 75);
+	--sl-color-black: oklch(1 0 0);
+}
+
+:root[data-theme='dark'] {
+	--sl-color-accent-low: oklch(0.28 0.05 62);
+	--sl-color-accent: oklch(0.72 0.14 70);
+	--sl-color-accent-high: oklch(0.9 0.05 78);
+
+	--sl-color-white: oklch(0.95 0.012 85);
+	--sl-color-gray-1: oklch(0.86 0.012 80);
+	--sl-color-gray-2: oklch(0.63 0.014 76);
+	--sl-color-gray-3: oklch(0.48 0.018 66);
+	--sl-color-gray-4: oklch(0.35 0.02 64);
+	--sl-color-gray-5: oklch(0.26 0.02 62);
+	--sl-color-gray-6: oklch(0.2 0.017 62);
+	--sl-color-gray-7: oklch(0.17 0.015 62);
+	--sl-color-black: oklch(0.135 0.012 62);
+}
+
+h1, h2, h3, h4, .sl-markdown-content h1, .sl-markdown-content h2 {
+	font-family: 'Spectral', Georgia, serif;
+	font-weight: 400;
+	letter-spacing: -0.01em;
+}
+
+.hero h1 {
+	font-weight: 300;
+}

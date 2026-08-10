@@ -135,6 +135,9 @@ Under the hood each is a block in `mcp.json` plus a key in the environment; a
 block whose key isn't set yet just waits. [docs/integrations.md](docs/integrations.md)
 has the by-hand steps for all of them.
 
+Full docs, including a walkthrough of every command, live at
+[docs.tryjarvis.in](https://docs.tryjarvis.in).
+
 ## The daemon
 
 `mantrin` starts a background daemon on first run and then talks to it. The

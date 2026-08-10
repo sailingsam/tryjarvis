@@ -1,0 +1,24 @@
+---
+import Default from '@astrojs/starlight/components/SiteTitle.astro';
+---
+
+<Default><slot /></Default>
+<span class="betapill">beta</span>
+
+<style>
+	/* ported from site/index.html's .betapill */
+	.betapill {
+		align-self: center;
+		flex: none;
+		line-height: 1;
+		font-size: 0.62rem;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--sl-color-accent-high);
+		border: 1px solid var(--sl-color-accent);
+		border-radius: 99px;
+		padding: 0.12rem 0.5rem;
+		white-space: nowrap;
+		margin-inline-start: 0.4rem;
+	}
+</style>
