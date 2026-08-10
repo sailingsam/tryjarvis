@@ -271,6 +271,10 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("tray", parents=[flags], help="show the status icon in the top bar")
     sub.add_parser("set-key", parents=[flags],
                    help="choose a push-to-talk key: hold it to talk, release to get the answer")
+    connect_p = sub.add_parser("connect", parents=[flags],
+                               help="plug in an integration — WhatsApp, Spotify, Calendar…")
+    connect_p.add_argument("integration", nargs="?", default=None,
+                           help="which one (bare `mantrin connect` lists them all)")
     args = parser.parse_args(argv)
 
     # Per-run overrides go into the environment, not onto the config module.
@@ -321,6 +325,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "set-key":
         from .hotkey import set_key
         return set_key()
+    if args.cmd == "connect":
+        from .connect import connect
+        return connect(args.integration)
     if args.cmd in ("install", "uninstall", "start", "stop", "restart", "status", "logs"):
         from . import service
         return getattr(service, args.cmd)()

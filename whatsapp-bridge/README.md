@@ -28,7 +28,7 @@ npx -y mantrin-whatsapp    # scan the QR with the dedicated number, then Ctrl+C
 
 From a checkout it's `node src/main.ts` instead. Either way, Jarvis (or its
 daemon) launches it automatically afterwards via `data/mcp.json` — see the
-`whatsapp` block in `mcp.example.json`.
+`whatsapp` block in `jarvis/assets/mcp.example.json` (or just `mantrin connect whatsapp`).
 
 ## Where its state lives
 

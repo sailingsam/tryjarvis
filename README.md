@@ -123,10 +123,17 @@ everything it knows about you. Delete the file to give it amnesia.
 
 ## Integrations
 
-WhatsApp, Slack, X — and anything with an MCP server — plug into the same tool
-registry. Each is a block in `data/mcp.json` plus a key in the environment; a
-block whose key isn't set yet just waits. See [docs/integrations.md](docs/integrations.md)
-for what's wired and how to get each key.
+WhatsApp, Gmail, Calendar, Spotify, GitHub, Notion, Home Assistant, X — and
+anything with an MCP server — plug into the same tool registry.
+
+```bash
+mantrin connect            # list them, with live status
+mantrin connect spotify    # guided: opens the key page, takes the key, verifies
+```
+
+Under the hood each is a block in `mcp.json` plus a key in the environment; a
+block whose key isn't set yet just waits. [docs/integrations.md](docs/integrations.md)
+has the by-hand steps for all of them.
 
 ## The daemon
 

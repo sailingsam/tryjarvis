@@ -1,12 +1,22 @@
 # Integrations
 
-Every integration is an MCP server: a block in `data/mcp.json` (start from
-`mcp.example.json`) plus whatever key it needs in the environment. A block whose
-key isn't set yet is skipped at startup and lights up the day the key appears —
-so all of these can sit in your config from day one.
+The short way, for everything on this page:
+
+```bash
+mantrin connect            # list them all, with live status
+mantrin connect spotify    # walks you through that one, end to end
+```
+
+It seeds the config block, opens the page where the key is created, takes the
+key (hidden input, saved 0600), restarts, and then tells you whether the
+server actually came up. The steps below are the same information for people
+who prefer doing it by hand — every integration is an MCP server: a block in
+`mcp.json` (template: `jarvis/assets/mcp.example.json`) plus whatever key it
+needs in the environment. A block whose key isn't set yet is skipped at
+startup and lights up the day the key appears.
 
 Secrets go in the environment (or the project `.env`), never in `mcp.json`
-itself. After adding a key: `mantrin restart`.
+itself. After adding a key by hand: `mantrin restart`.
 
 ## WhatsApp
 

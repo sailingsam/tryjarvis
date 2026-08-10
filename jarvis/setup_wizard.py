@@ -207,4 +207,6 @@ def _run() -> int:
         return 1
 
     print("\nReady. Run `mantrin` and start talking.")
+    print("Integrations (WhatsApp, Calendar, Spotify…): `mantrin connect` lists "
+          "them, `mantrin connect <name>` walks you through one.")
     return 0
