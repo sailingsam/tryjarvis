@@ -286,13 +286,52 @@ def uninstall() -> int:
     return 0
 
 
+def _report_when_up(verb: str) -> None:
+    """Print the truth, not the systemctl exit code.
+
+    `systemctl restart` returns the moment the process is spawned; the brain,
+    models and connections are still loading for many seconds after — the
+    tray sits yellow exactly then. Claiming "Restarted." at spawn time asks
+    the user to distrust either the terminal or the icon. So: wait for the
+    socket to answer, then for the voice to declare itself, and if it comes
+    up broken say why right here instead of leaving it to a red icon."""
+    print(f"{verb} — loading the brain and connections…", flush=True)
+    deadline = time.monotonic() + 90
+    while time.monotonic() < deadline and not _daemon_alive():
+        time.sleep(0.5)
+    if not _daemon_alive():
+        print("Still not answering after 90s — `mantrin logs` will say why.")
+        return
+    # The socket is up; the ears may still be warming (tray: yellow).
+    import json
+    deadline = time.monotonic() + 30
+    while time.monotonic() < deadline:
+        try:
+            state = json.loads(config.STATE_FILE.read_text()).get("state", "")
+        except (OSError, ValueError):
+            state = ""
+        if state in ("ready", "hearing", "speaking", "thinking"):
+            print(f"{verb} — ready.")
+            return
+        if state == "error":
+            detail = json.loads(config.STATE_FILE.read_text()).get("detail", "")
+            print(f"{verb}, but voice has a problem: {detail or 'see mantrin logs'}")
+            return
+        if state == "off":              # text-only / no-voice configurations
+            print(f"{verb}.")
+            return
+        time.sleep(0.5)
+    print(f"{verb} — voice is still warming up; the tray goes green when the "
+          f"ears are live.")
+
+
 def start() -> int:
     if installed():
         result = _systemctl("start", UNIT)
         if result.returncode != 0:
             print(f"Couldn't start: {result.stderr.strip()}")
             return 1
-        print("Started.")
+        _report_when_up("Started")
         return 0
     # No service — fall back to the detached background daemon.
     from .cli import _ensure_daemon
@@ -316,9 +355,11 @@ def stop() -> int:
 def restart() -> int:
     if installed():
         result = _systemctl("restart", UNIT)
-        print("Restarted." if result.returncode == 0
-              else f"Couldn't restart: {result.stderr.strip()}")
-        return result.returncode
+        if result.returncode != 0:
+            print(f"Couldn't restart: {result.stderr.strip()}")
+            return result.returncode
+        _report_when_up("Restarted")
+        return 0
     _stop_manual_daemon()
     return start()
 
