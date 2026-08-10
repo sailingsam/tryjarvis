@@ -17,6 +17,7 @@ import asyncio
 import re
 import threading
 import time
+from concurrent.futures import TimeoutError as FuturesTimeout
 
 from .base import Tool
 
@@ -104,11 +105,22 @@ class MCPClient:
             if errlog is not sys.stderr:
                 errlog.close()
 
-    def call(self, remote_name: str, arguments: dict, timeout: float = 120.0) -> str:
+    def call(self, remote_name: str, arguments: dict, timeout: float = 45.0) -> str:
+        """45s, not forever: a tool that hangs (a server silently waiting for
+        an OAuth browser that can never open inside a daemon) must not freeze
+        the whole brain — a spoken conversation died at exactly this spot
+        once, tray stuck on blue. Better a clear failure the model can relay
+        than a perfect answer that never comes."""
         fut = asyncio.run_coroutine_threadsafe(
             self._session.call_tool(remote_name, arguments), self._loop
         )
-        return _result_text(fut.result(timeout=timeout))
+        try:
+            return _result_text(fut.result(timeout=timeout))
+        except FuturesTimeout:
+            fut.cancel()
+            return (f"(tool error) {self.name}'s {remote_name} didn't answer within "
+                    f"{int(timeout)} seconds. The server may need one-time setup — "
+                    f"suggest running `mantrin connect {self.name}` in a terminal.")
 
     def close(self) -> None:
         if self._loop and self._stop and not self._loop.is_closed():
@@ -125,10 +137,30 @@ class MCPTool(Tool):
         self._remote_name = meta.name
         self.name = f"{_sanitize(client.name)}_{_sanitize(meta.name)}"[:64]
         self.description = getattr(meta, "description", "") or ""
-        self.input_schema = getattr(meta, "inputSchema", None) or {"type": "object", "properties": {}}
+        # The SDK renamed the field: modern versions expose `input_schema`,
+        # older ones `inputSchema`. Falling through to an empty schema here
+        # once left EVERY MCP tool parameter invisible to the model — it
+        # guessed argument names from prose, loose servers swallowed the
+        # wrong ones silently, and the wrong song played with full success.
+        self.input_schema = (getattr(meta, "input_schema", None)
+                             or getattr(meta, "inputSchema", None)
+                             or {"type": "object", "properties": {}})
         self.needs_confirm = _infer_confirm(meta)
 
     def execute(self, **kwargs) -> str:
+        # Check the argument names against the schema BEFORE calling. Loose
+        # servers ignore unknown keys instead of erroring — a playback tool
+        # sent `uri` instead of `spotify_uri` silently resumed whatever was
+        # already playing and reported success, so the model cheerfully told
+        # the user the wrong song was the right one. A corrective error here
+        # is something the model fixes on its next attempt; a silent ignore
+        # it can never see.
+        known = set((self.input_schema.get("properties") or {}).keys())
+        unknown = set(kwargs) - known
+        if known and unknown:
+            return (f"(tool error) unknown argument(s): {', '.join(sorted(unknown))}. "
+                    f"This tool only accepts: {', '.join(sorted(known))}. "
+                    f"Retry with the correct names.")
         result = self._safe_call(kwargs)
         if any(t in result.lower() for t in _TRANSIENT):
             time.sleep(3)                      # let the socket finish connecting

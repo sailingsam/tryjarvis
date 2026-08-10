@@ -72,9 +72,14 @@ def _connect_mcp(tools: list) -> list:
         try:
             from .tools.mcp_client import connect
 
+            # Servers run with DATA_DIR as their working directory unless the
+            # block says otherwise: scratch files (spotipy's token cache, for
+            # one) land in one predictable place instead of wherever the
+            # daemon happened to be started from — site-packages, on a pip
+            # install.
             client, mcp_tools = connect(
                 server["name"], server["command"], server.get("args", []),
-                server.get("env"), server.get("cwd"),
+                server.get("env"), server.get("cwd") or str(config.DATA_DIR),
                 errlog_path=str(config.DATA_DIR / f"mcp-{server['name']}.log"),
             )
             clients.append(client)

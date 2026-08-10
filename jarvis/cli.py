@@ -107,7 +107,7 @@ def _connect_mcp(tools: list) -> list:
 
             client, mcp_tools = connect(
                 server["name"], server["command"], server.get("args", []),
-                server.get("env"), server.get("cwd"),
+                server.get("env"), server.get("cwd") or str(config.DATA_DIR),
                 errlog_path=str(config.DATA_DIR / f"mcp-{server['name']}.log"),
             )
             clients.append(client)

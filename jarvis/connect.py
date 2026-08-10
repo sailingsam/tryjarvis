@@ -262,6 +262,41 @@ def _pair_whatsapp() -> None:
     print()
 
 
+# The exact scope string spotify-mcp requests — the pre-authorised token must
+# cover it, or every call fails re-asking for consent the daemon can't give.
+_SPOTIFY_SCOPE = ("user-library-read,user-read-playback-state,"
+                  "user-modify-playback-state,user-read-currently-playing,"
+                  "playlist-read-private,playlist-read-collaborative,"
+                  "playlist-modify-private,playlist-modify-public")
+
+
+def _auth_spotify() -> bool:
+    """App keys are half of Spotify — the other half is *your account* saying
+    yes once (OAuth). Inside the daemon that consent screen can never appear,
+    and the server just waits forever (found the hard way: a spoken 'play any
+    Hindi song', a tray stuck on blue). So the browser dance happens here in
+    the terminal, and the token is written exactly where the daemon's server
+    will look for it: DATA_DIR/.cache, spotipy's cache in the server's cwd."""
+    snippet = (
+        "import os\n"
+        "from spotipy.oauth2 import SpotifyOAuth\n"
+        "auth = SpotifyOAuth(client_id=os.environ['SPOTIFY_CLIENT_ID'],"
+        " client_secret=os.environ['SPOTIFY_CLIENT_SECRET'],"
+        " redirect_uri='http://127.0.0.1:8080/callback',"
+        f" scope='{_SPOTIFY_SCOPE}',"
+        " open_browser=True, cache_path=os.environ['MANTRIN_SPOTIFY_CACHE'])\n"
+        "import sys\n"
+        "sys.exit(0 if auth.get_access_token(as_dict=False) else 1)\n"
+    )
+    env = dict(os.environ)
+    env["MANTRIN_SPOTIFY_CACHE"] = str(config.DATA_DIR / ".cache")
+    config.DATA_DIR.mkdir(parents=True, exist_ok=True)
+    print("\n  A browser will open — sign in to Spotify and click Agree…")
+    result = subprocess.run(["uv", "run", "--with", "spotipy", "python", "-c", snippet],
+                            env=env)
+    return result.returncode == 0
+
+
 def _auth_gmail(oauth_json: str) -> bool:
     """Gmail's server keeps its own credentials in ~/.gmail-mcp — copy the
     OAuth client there and run its one-time browser sign-in."""
@@ -349,6 +384,10 @@ def _connect(name: str | None) -> int:
     if name == "gmail":
         if not _auth_gmail(got["_GMAIL_OAUTH_JSON"]):
             print("The Google sign-in didn't finish — re-run to try again.")
+            return 1
+    if name == "spotify":
+        if not _auth_spotify():
+            print("The Spotify sign-in didn't finish — re-run to try again.")
             return 1
     if name == "whatsapp":
         _pair_whatsapp()
