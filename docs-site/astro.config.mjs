@@ -29,6 +29,14 @@ export default defineConfig({
 					],
 				},
 				{
+					label: 'Reference',
+					items: [
+						{ label: 'Commands', slug: 'reference/commands' },
+						{ label: 'Logs & the daemon', slug: 'reference/logs-and-daemon' },
+						{ label: 'Config & data locations', slug: 'reference/data-and-config' },
+					],
+				},
+				{
 					label: 'Integrations',
 					items: [
 						{ label: 'Overview', slug: 'integrations' },
@@ -41,14 +49,6 @@ export default defineConfig({
 						{ label: 'Spotify', slug: 'integrations/spotify' },
 						{ label: 'Weather', slug: 'integrations/weather' },
 						{ label: 'Google Maps', slug: 'integrations/google-maps' },
-					],
-				},
-				{
-					label: 'Reference',
-					items: [
-						{ label: 'Commands', slug: 'reference/commands' },
-						{ label: 'Logs & the daemon', slug: 'reference/logs-and-daemon' },
-						{ label: 'Config & data locations', slug: 'reference/data-and-config' },
 					],
 				},
 				{
