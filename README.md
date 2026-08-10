@@ -65,6 +65,27 @@ listening. Interrupt it mid-sentence and it stops, like a person would. After it
 answers it keeps listening for a few seconds, so a back-and-forth doesn't need
 the wake word every time.
 
+### Push-to-talk
+
+```bash
+mantrin set-key    # press the key you want; hold it to talk
+```
+
+Or there *is* a button, if you want one: hold your chosen key (any key — a
+Lenovo star key, F10, whatever your keyboard has) and Mantrin listens; release
+it and the answer comes. The release is the endpoint — no wake word, no
+waiting out your pauses, and a press always interrupts a reply.
+
+Three trigger modes (pick during `set-key`, or from the tray): wake word, talk
+key, or both. In key-only mode the microphone device simply does not exist
+between presses — your OS's mic light burning is exactly the time Mantrin
+could hear anything.
+
+Reading the keyboard needs your user in the `input` group (`set-key` offers
+to add you; one logout applies it). Honest note: that permission can see every
+key, so [`jarvis/hotkey.py`](jarvis/hotkey.py) stays one short, verifiable
+file that matches a single keycode and ignores the rest.
+
 ### Type instead
 
 ```bash
@@ -138,7 +159,9 @@ It also puts a status icon in the top bar (`mantrin tray`, auto-started at
 login): green means listening for the wake word, blue means mid-conversation,
 yellow starting, red something's wrong. The menu holds a **Mute microphone**
 hard mute — the mic device is released (your OS's mic light goes out) and even
-the wake word is ignored, while the brain and connections keep working.
+the wake word is ignored, while the brain and connections keep working. Once a
+talk key is set (`mantrin set-key`), a **Listen for** switch picks between
+wake word, talk key, or both.
 
 ## Contributing
 

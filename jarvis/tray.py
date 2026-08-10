@@ -91,6 +91,15 @@ def _read_state() -> tuple[str, str]:
         return "off", ""
 
 
+def _trigger() -> str:
+    """What opens the mic, per the saved settings — read fresh because the
+    tray outlives any single daemon configuration."""
+    settings = config.load_settings()
+    if not settings.get("talk_key"):
+        return "wake"
+    return settings.get("trigger") or "both"
+
+
 def current_status() -> tuple[str, str]:
     """(icon, human text) — the file says what the daemon last felt, the
     socket says whether it is still alive to feel anything. A 'ready' from a
@@ -111,6 +120,14 @@ def current_status() -> tuple[str, str]:
             state, detail = "error", "daemon stopped answering"
     icon = _STATE_ICON.get(state, "grey")
     text = _STATE_TEXT.get(state, state)
+    if state == "ready":
+        # "Listening for the wake word" would be a lie in key mode — there,
+        # ready means the mic is RELEASED until the key goes down.
+        trig = _trigger()
+        if trig == "key":
+            text = "Hold your talk key to speak — mic off until then"
+        elif trig == "both":
+            text = "Listening — wake word, or hold your talk key"
     if detail:
         text = f"{text} — {detail}"
     return icon, text
@@ -190,6 +207,40 @@ def main() -> int:
         refresh()
     pause_item.connect("toggled", on_pause)
     menu.append(pause_item)
+
+    # How Mantrin is summoned — only shown once a talk key exists to offer.
+    # Changing it rewrites the setting and restarts the daemon; the tray
+    # itself never needs to understand what a trigger is.
+    updating["trigger"] = True
+    if config.load_settings().get("talk_key"):
+        trig_root = Gtk.MenuItem(label="Listen for")
+        trig_menu = Gtk.Menu()
+
+        def on_trigger(item, value: str) -> None:
+            if updating["trigger"] or not item.get_active():
+                return
+            settings = config.load_settings()
+            if (settings.get("trigger") or "both") == value:
+                return
+            settings["trigger"] = value
+            config.save_settings(settings)
+            _mantrin("restart")
+
+        current = config.load_settings().get("trigger") or "both"
+        group: list = []
+        for value, label in (
+            ("both", "Wake word + talk key"),
+            ("key", "Talk key only — mic off between presses"),
+            ("wake", "Wake word only"),
+        ):
+            item = Gtk.RadioMenuItem.new_with_label(group, label)
+            group = item.get_group()
+            item.set_active(value == current)
+            item.connect("toggled", on_trigger, value)
+            trig_menu.append(item)
+        trig_root.set_submenu(trig_menu)
+        menu.append(trig_root)
+    updating["trigger"] = False
     menu.append(Gtk.SeparatorMenuItem())
 
     restart_item = Gtk.MenuItem(label="Restart Mantrin")

@@ -150,10 +150,13 @@ class Mic:
     `close()` is called or the recorder dies.
     """
 
-    def __init__(self):
+    def __init__(self, ec: bool = True):
         # The canceller shares the Mic's lifetime: open the device, bring up
         # the ears' selective deafness; close it, and nothing captures at all.
-        self._ec = _start_echo_cancel()
+        # Callers that never record during playback (push-to-talk-only, where
+        # the mic is closed while Mantrin speaks) pass ec=False: there is no
+        # echo to cancel, and skipping it makes each key-press reopen fast.
+        self._ec = ec and _start_echo_cancel()
         self._proc = subprocess.Popen(
             _record_command(self._ec), stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
             bufsize=0,
@@ -207,8 +210,9 @@ class FrameStream:
     mic picked up of Mantrin's own voice before listening again.
     """
 
-    def __init__(self, mic: "Mic | None" = None, *, keep_ms: int = 3_000):
-        self._mic = mic or Mic()
+    def __init__(self, mic: "Mic | None" = None, *, keep_ms: int = 3_000, ec: bool = True):
+        self._ec = ec
+        self._mic = mic or Mic(ec=ec)
         # A bounded buffer *is* the policy: once it is full the oldest frame is
         # dropped, so a slow consumer falls behind by a bounded amount instead of
         # accumulating a backlog it would later mistake for the present.
@@ -253,7 +257,7 @@ class FrameStream:
         """Reopen the device and start pumping again."""
         if not self._suspended:
             return
-        self._mic = Mic()
+        self._mic = Mic(ec=self._ec)
         self._suspended = False
         self._reader = threading.Thread(target=self._pump, daemon=True, name="mic-reader")
         self._reader.start()
@@ -436,7 +440,8 @@ class Endpointer:
         return peak >= self._floor.gate
 
     def collect_one(self, frames: Iterable[bytes], *,
-                    onset_timeout_ms: int | None = None) -> bytes | None:
+                    onset_timeout_ms: int | None = None,
+                    interrupt=None) -> bytes | None:
         """Block until one utterance is complete, then return it.
 
         Taking a single utterance rather than a generator matters because the
@@ -446,6 +451,10 @@ class Endpointer:
         Returns `b""` if `onset_timeout_ms` passes with nobody speaking, and
         `None` only when the microphone stream ends. The caller needs to tell
         those apart: silence means go back to waiting, a dead stream means stop.
+
+        `interrupt` (optional callable) is checked while waiting for the onset:
+        when it returns True this gives the stream back at once with `b""` —
+        the talk key uses it so a press mid-wait wins over the open-ended wait.
         """
         preroll: collections.deque[bytes] = collections.deque(maxlen=self._preroll_frames)
         collected: list[bytes] = []
@@ -456,6 +465,8 @@ class Endpointer:
         patience = None if onset_timeout_ms is None else onset_timeout_ms // FRAME_MS
 
         for frame in frames:
+            if interrupt is not None and not speaking and interrupt():
+                return b""
             voiced = self._voiced(frame)
 
             if not speaking:

@@ -171,12 +171,34 @@ def _voice_loop(turns: _Turns, memory) -> None:
         publish_state("error", f"voice off: {e}")
         return
 
+    # The talk key (push-to-talk). A trigger that needs a key nobody can read
+    # falls back to the wake word — an unreachable Mantrin helps no one.
+    from . import audio, hotkey
+
+    trigger = config.VOICE_TRIGGER
+    ptt = None
+    if trigger != "wake":
+        if not hotkey.readable():
+            print("(talk key off: /dev/input isn't readable — "
+                  "sudo usermod -aG input $USER, then log out and back in)", flush=True)
+            trigger = "wake"
+        else:
+            ptt = hotkey.TalkKey(config.TALK_KEY).start()
+            name = config.SETTINGS.get("talk_key_name") or f"key {config.TALK_KEY}"
+            print(f"(talk key: hold {name} to speak)", flush=True)
+
     io = VoiceIO(
         stt, tts,
-        gate=wake.build(config.WAKE_WORD),
+        # Key-only mode never loads the wake model, and skips echo
+        # cancellation: the mic is closed while Mantrin speaks, so there is
+        # no echo to cancel — and each key-press reopen stays fast.
+        gate=wake.build(config.WAKE_WORD) if trigger != "key" else None,
         hints=lambda: _name_hints(memory),
         show_timings=config.SHOW_TIMINGS,
+        stream=audio.FrameStream(ec=(trigger != "key")),
         on_state=publish_state,
+        ptt=ptt,
+        trigger=trigger,
     )
     try:
         while True:

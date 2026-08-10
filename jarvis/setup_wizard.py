@@ -172,6 +172,8 @@ def _run() -> int:
 
     if registry.STT[stt].mode != "text":
         settings["wake_word"] = _choose_wake_word(settings.get("wake_word", wake.DEFAULT_PHRASE))
+        from . import hotkey
+        hotkey.offer_in_wizard(settings)
 
     path = config.save_settings(settings)
     print(f"\nSaved to {path} (readable only by you).")

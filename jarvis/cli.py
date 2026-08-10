@@ -269,6 +269,8 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("status", parents=[flags], help="is Mantrin running, and what does it know")
     sub.add_parser("logs", parents=[flags], help="follow what Mantrin is doing")
     sub.add_parser("tray", parents=[flags], help="show the status icon in the top bar")
+    sub.add_parser("set-key", parents=[flags],
+                   help="choose a push-to-talk key: hold it to talk, release to get the answer")
     args = parser.parse_args(argv)
 
     # Per-run overrides go into the environment, not onto the config module.
@@ -316,6 +318,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "tray":
         from .tray import main as tray_main
         return tray_main()
+    if args.cmd == "set-key":
+        from .hotkey import set_key
+        return set_key()
     if args.cmd in ("install", "uninstall", "start", "stop", "restart", "status", "logs"):
         from . import service
         return getattr(service, args.cmd)()

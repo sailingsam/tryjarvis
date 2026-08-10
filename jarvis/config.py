@@ -117,6 +117,29 @@ TTS_PROVIDER = os.environ.get("MANTRIN_TTS") or SETTINGS.get("tts") or "piper-lo
 # machine. Empty string disables it (fine while testing, wrong for always-on).
 WAKE_WORD = os.environ.get("MANTRIN_WAKE_WORD", SETTINGS.get("wake_word", "hey_jarvis"))
 
+# Push-to-talk. An evdev keycode captured by `mantrin set-key` — hold that key
+# and Mantrin listens, release it and the answer comes. None until set.
+def _talk_key() -> int | None:
+    raw = os.environ.get("MANTRIN_TALK_KEY", SETTINGS.get("talk_key"))
+    try:
+        return int(raw) if raw not in (None, "") else None
+    except (TypeError, ValueError):
+        return None
+
+
+TALK_KEY = _talk_key()
+
+# What opens the microphone: "wake" (say the wake word), "key" (hold the talk
+# key — the device stays fully released otherwise), or "both". A trigger that
+# needs a key nobody has set falls back to the wake word rather than to a
+# Mantrin that cannot be reached at all.
+VOICE_TRIGGER = (
+    os.environ.get("MANTRIN_TRIGGER") or SETTINGS.get("trigger")
+    or ("both" if TALK_KEY else "wake")
+)
+if VOICE_TRIGGER not in ("wake", "key", "both") or (VOICE_TRIGGER != "wake" and TALK_KEY is None):
+    VOICE_TRIGGER = "wake"
+
 # Voice model options, e.g. {"voice": "en_GB-alba-medium"} or {"model": "small"}.
 STT_OPTIONS: dict = SETTINGS.get("stt_options") or {}
 TTS_OPTIONS: dict = SETTINGS.get("tts_options") or {}

@@ -18,6 +18,12 @@ headphones.
 **A follow-up window.** After Mantrin replies, it keeps listening for a few
 seconds without needing the wake word again. Real conversation is a back and
 forth; saying "hey jarvis" before every sentence is not.
+
+**The talk key (push-to-talk).** Hold the key and Mantrin listens; the release
+IS the endpoint — no voice-activity guessing, no trailing-silence wait, and a
+press always interrupts playback. In key-only trigger mode the microphone
+device is fully released between presses, so the OS mic light burning is
+exactly the time Mantrin could hear anything.
 """
 
 from __future__ import annotations
@@ -61,6 +67,10 @@ _BARGE_IN_BLIND_EC_MS = 300
 # talking to us. Long enough for "hey jarvis" … *thinks* … "remind me to…", short
 # enough that a stray detection does not leave the mic open.
 _COMMAND_GRACE_MS = 4_000
+
+# A talk-key utterance shorter than this is an accidental tap, not speech —
+# transcribing 60ms of key-clack would answer noise.
+_MIN_PTT_MS = 250
 
 # How long a *thinking pause* may last once the words so far sound unfinished.
 # "…his name was ummm" followed by two seconds of silence is someone reaching
@@ -115,12 +125,21 @@ class VoiceIO:
         show_timings: bool = False,
         stream: audio.FrameStream | None = None,
         on_state: Callable[[str], None] | None = None,
+        ptt=None,
+        trigger: str = "wake",
     ):
         self._stt = stt
         self._tts = tts
         self._gate = gate or wake.Always()
+        # The talk key (a hotkey.TalkKey, or None). `trigger` says what opens
+        # the mic: "wake", "key", or "both". Key-only is the fully-released
+        # mode — between presses the recorder process does not exist.
+        self._ptt = ptt
+        self._trigger = trigger if ptt is not None else "wake"
         self._hints = hints
-        self._follow_up = follow_up_ms / 1000
+        # Key-only mode has no hot follow-up window: the mic is released the
+        # moment the key comes up, and a follow-up is just another press.
+        self._follow_up = 0 if self._trigger == "key" else follow_up_ms / 1000
         self._show_timings = show_timings
         # Tells the desktop what the ears are doing ("ready", "hearing",
         # "speaking", "paused") — the tray icon's colour is this callback.
@@ -140,7 +159,12 @@ class VoiceIO:
 
         phrase = getattr(self._gate, "_phrase", "")
         gated = getattr(self._gate, "is_gate", False)
-        detail = f", say “{phrase.replace('_', ' ')}”" if gated and phrase else ", no wake word"
+        if self._trigger == "key":
+            detail = ", hold the talk key"
+        else:
+            detail = f", say “{phrase.replace('_', ' ')}”" if gated and phrase else ", no wake word"
+            if self._ptt is not None:
+                detail += " or hold the talk key"
         print(f"(listening — noise floor {seed}{detail})", flush=True)
 
     # ------------------------------------------------------------------ in
@@ -153,11 +177,32 @@ class VoiceIO:
             # A pause (the tray's hard mute) collapses the follow-up window
             # too: pressing it mid-conversation must take effect now, not
             # after the window happens to expire.
+            if self._trigger == "key":
+                text = self._key_mode_turn()
+                if text is None:
+                    return None
+                if not text:
+                    continue
+                return text
+
+            # In "both" mode a held key beats every other wait: whoever is
+            # holding it has already decided they are talking to Mantrin.
+            if self._ptt is not None and self._ptt.held and not _mic_paused():
+                text = self._ptt_turn()
+                if text is None:
+                    return None
+                if not text:
+                    continue
+                return text
+
             armed = gated and (_mic_paused() or time.monotonic() > self._listen_until)
 
             if armed:
-                if not self._await_wake():
+                got = self._await_wake()
+                if not got:
                     return None
+                if got == "ptt":
+                    continue            # the loop top picks up the held key
                 self._on_state("hearing")
                 # Wait for the command rather than assuming it is already
                 # underway. People say the wake word both ways — "hey jarvis,
@@ -168,7 +213,8 @@ class VoiceIO:
                 # speech had begun broke the pause case outright: it collected
                 # silence, transcribed nothing, and went back to sleep.
                 utterance = self._endpointer.collect_one(
-                    self._frames, onset_timeout_ms=_COMMAND_GRACE_MS
+                    self._frames, onset_timeout_ms=_COMMAND_GRACE_MS,
+                    interrupt=self._key_waiting,
                 )
             elif gated:
                 # Inside the follow-up window. The window has to be enforced
@@ -180,10 +226,13 @@ class VoiceIO:
                 # between waits.
                 remaining_ms = max(1, int((self._listen_until - time.monotonic()) * 1000))
                 utterance = self._endpointer.collect_one(
-                    self._frames, onset_timeout_ms=remaining_ms
+                    self._frames, onset_timeout_ms=remaining_ms,
+                    interrupt=self._key_waiting,
                 )
             else:
-                utterance = self._endpointer.collect_one(self._frames)
+                utterance = self._endpointer.collect_one(
+                    self._frames, interrupt=self._key_waiting
+                )
 
             if utterance is None:
                 return None
@@ -241,8 +290,75 @@ class VoiceIO:
             text = self._transcribe(pcm) or text
         return text
 
-    def _await_wake(self) -> bool:
-        """Consume frames until the wake word fires. False if the mic died.
+    # ------------------------------------------------------------- talk key
+
+    def _key_waiting(self) -> bool:
+        """Passed into collect_one as `interrupt`: a held talk key wins over
+        any open-ended wait for speech."""
+        return self._ptt is not None and self._ptt.held and not _mic_paused()
+
+    def _collect_held(self) -> bytes | None:
+        """Record until the key comes up. The release IS the endpoint — no
+        VAD, no trailing-silence wait; the user says when the turn is over,
+        to the millisecond."""
+        collected: list[bytes] = []
+        while self._ptt.held:
+            frame = next(self._frames, None)
+            if frame is None:
+                return None
+            collected.append(frame)
+        return b"".join(collected)
+
+    def _ptt_turn(self) -> str | None:
+        """One held-key exchange in "both" mode — the stream is already live.
+        None means the mic died; "" means nothing usable was said."""
+        self._ptt.take_press()
+        self._on_state("hearing")
+        self._stream.drain()            # the press marks now; backlog is noise
+        utterance = self._collect_held()
+        if utterance is None:
+            return None
+        return self._transcribe_held(utterance)
+
+    def _key_mode_turn(self) -> str | None:
+        """One full cycle in key-only mode: wait released, record held.
+
+        Between presses the recorder process does not exist, so the OS mic
+        light is dark — the light burning is exactly the time Mantrin could
+        hear anything. The ~100ms the device takes to reopen sits inside the
+        human gap between pressing a key and starting to speak.
+        """
+        self._stream.suspend()
+        paused = _mic_paused()
+        self._on_state("paused" if paused else "ready")
+        while not self._ptt.held or _mic_paused():
+            time.sleep(0.03)
+            # The mic is already released either way, but the icon must tell
+            # the truth about WHY: muted means even the key is ignored.
+            if _mic_paused() != paused:
+                paused = not paused
+                self._on_state("paused" if paused else "ready")
+        self._ptt.take_press()
+        self._stream.resume()
+        self._on_state("hearing")
+        utterance = self._collect_held()
+        self._stream.suspend()          # released again before we even transcribe
+        if utterance is None:
+            return None
+        return self._transcribe_held(utterance)
+
+    def _transcribe_held(self, utterance: bytes) -> str:
+        min_bytes = _MIN_PTT_MS * audio.SAMPLE_RATE * audio.SAMPLE_WIDTH // 1000
+        if len(utterance) < min_bytes:
+            return ""                   # an accidental tap, not speech
+        text = self._transcribe(utterance) or ""
+        if text:
+            print(f"you  > {text}")
+        return text
+
+    def _await_wake(self) -> str | None:
+        """Consume frames until the wake word fires ("wake") or the talk key
+        goes down ("ptt"). None if the mic died.
 
         The pause flag (the tray's hard mute) releases the microphone DEVICE,
         not just the gate: the recorder process exits and the OS's mic-in-use
@@ -265,7 +381,9 @@ class VoiceIO:
                 self._on_state("ready")
             frame = next(self._frames, None)
             if frame is None:
-                return False                    # the mic actually died
+                return None                     # the mic actually died
+            if self._ptt is not None and self._ptt.held:
+                return "ptt"
             # Idle is when most of the day's audio goes past, so it is also when
             # the noise floor must keep learning. Otherwise music that started
             # while Mantrin was dormant would meet a stale, quiet-room gate the
@@ -279,7 +397,7 @@ class VoiceIO:
                 continue
             if self._gate.open(frame):
                 self._gate.reset()
-                return True
+                return "wake"
 
     # ----------------------------------------------------------------- out
 
@@ -348,6 +466,21 @@ class VoiceIO:
             # stale buffer and stop the reply at the first syllable. Playback
             # is a new acoustic scene; the model starts from silence.
             self._gate.reset()
+        if self._ptt is not None:
+            # A press consumed while Mantrin was thinking is stale — but a key
+            # still HELD is someone waiting to talk, and that outranks the reply.
+            self._ptt.take_press()
+            if self._trigger == "key":
+                # Key-only mode speaks with the stream suspended (the mic is
+                # released), so there are no frames to read: the key is the
+                # only interrupter, and the only one needed.
+                while playback.playing and not playback.stopped:
+                    if self._ptt.take_press() or self._ptt.held:
+                        playback.stop()
+                        print("(barge-in: talk key)", flush=True)
+                        return True
+                    time.sleep(0.03)
+                return False
         onset_needed = max(1, _BARGE_IN_ONSET_MS // audio.FRAME_MS)
         pending: collections.deque[int] = collections.deque(maxlen=onset_needed)
         own_voice = 0
@@ -358,6 +491,10 @@ class VoiceIO:
         for frame in self._frames:
             if playback.stopped or not playback.playing:
                 return False
+            if self._ptt is not None and (self._ptt.take_press() or self._ptt.held):
+                playback.stop()
+                print("(barge-in: talk key)", flush=True)
+                return True
             peak = audio._peak(frame)
 
             if gated and self._gate.open(frame):
