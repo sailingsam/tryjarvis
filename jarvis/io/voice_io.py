@@ -29,11 +29,14 @@ exactly the time Mantrin could hear anything.
 from __future__ import annotations
 
 import collections
+import queue
 import re
+import threading
 import time
 from typing import Callable
 
 from .. import audio, config, timings, wake
+from ..providers.tts import speakable
 
 
 def _mic_paused() -> bool:
@@ -111,6 +114,112 @@ def _sounds_unfinished(text: str) -> bool:
     return bool(words) and words[-1] in _DANGLING_WORDS
 
 
+# A sentence boundary worth speaking at: end punctuation + whitespace, or a
+# paragraph break. Short fragments wait for more text — "Ok." alone isn't
+# worth spinning the synthesiser for, and it smooths the prosody.
+_SENTENCE_END = re.compile(r"(?<=[.!?…])\s+|\n+")
+_MIN_SENTENCE_CHARS = 24
+
+
+class _StreamSpeaker:
+    """Speaks a reply while it is still being generated.
+
+    The whole latency trick in one object: the brain streams text deltas in
+    via `feed()`, complete sentences go to the synthesiser one at a time,
+    and their audio feeds ONE continuous playback — so Mantrin starts
+    talking after the first sentence exists, typically while the model is
+    still writing the third. Barge-in watches the same playback from its
+    own thread; a stop drops every sentence still queued.
+    """
+
+    def __init__(self, io: "VoiceIO"):
+        self._io = io
+        self._tts = io._tts
+        self._buf = ""
+        self._q: queue.Queue | None = None
+        self._playback: audio.Playback | None = None
+        self._watcher: threading.Thread | None = None
+        self._started = time.monotonic()
+        self.spoke = False              # any audio at all this turn?
+        self.interrupted = False
+        self.first_audio_ms: float | None = None
+
+    # Called from the brain's thread, delta by delta.
+    def feed(self, delta: str) -> None:
+        if self.interrupted or not delta:
+            return
+        self._buf += delta
+        while True:
+            cut = None
+            for m in _SENTENCE_END.finditer(self._buf):
+                if m.start() >= _MIN_SENTENCE_CHARS:
+                    cut = m
+                    break
+            if cut is None:
+                return
+            sentence, self._buf = self._buf[:cut.start()], self._buf[cut.end():]
+            self._say(sentence)
+
+    def _say(self, sentence: str) -> None:
+        text = speakable(sentence)
+        if not text:
+            return
+        if self._playback is None:
+            self._q = queue.Queue()
+            self._io._on_state("speaking")
+            self._playback = audio.play_stream(
+                self._pcm(self._q), sample_rate=self._tts.sample_rate,
+                on_start=self._mark_first_audio,
+            )
+            self._watcher = threading.Thread(target=self._watch, daemon=True,
+                                             name="stream-barge-in")
+            self._watcher.start()
+        self.spoke = True
+        self._q.put(text)
+
+    def _pcm(self, q: queue.Queue):
+        while True:
+            sentence = q.get()
+            if sentence is None:
+                return
+            yield from self._tts.stream(sentence)
+
+    def _mark_first_audio(self) -> None:
+        if self.first_audio_ms is None:
+            self.first_audio_ms = (time.monotonic() - self._started) * 1000
+
+    def _watch(self) -> None:
+        if self._io._watch_for_interruption(self._playback):
+            self.interrupted = True
+            self._buf = ""
+            if self._q is not None:
+                self._q.put(None)       # unblock the synth generator
+
+    # ------------------------------------------------------------- winding up
+
+    def close(self) -> None:
+        """Flush the tail, let the playback drain, join the watcher."""
+        if self._buf.strip() and not self.interrupted:
+            self._say(self._buf)
+        self._buf = ""
+        if self._q is not None:
+            self._q.put(None)
+        if self._playback is not None:
+            self._playback.wait(timeout=120)
+            if self._watcher is not None:
+                self._watcher.join(timeout=2)
+            self._playback = None
+
+    def abandon(self) -> None:
+        """The turn died (an exception mid-think): stop making sound now."""
+        self.interrupted = True
+        if self._playback is not None:
+            self._playback.stop()
+            self._playback = None
+        if self._q is not None:
+            self._q.put(None)
+
+
 class VoiceIO:
     """Speech in, speech out, with the mic held open for the whole session."""
 
@@ -154,6 +263,7 @@ class VoiceIO:
         seed = audio.calibrate_noise_floor(self._frames)
         self._endpointer = audio.Endpointer(min_peak=seed)
         self._listen_until = 0.0        # follow-up window; past = gate is armed
+        self._active_speaker: _StreamSpeaker | None = None
         self.transcribed_seconds = 0.0  # audio actually sent for transcription
         self.turn = timings.Turn(enabled=show_timings)
 
@@ -297,17 +407,36 @@ class VoiceIO:
         any open-ended wait for speech."""
         return self._ptt is not None and self._ptt.held and not _mic_paused()
 
-    def _collect_held(self) -> bytes | None:
+    def _collect_held(self) -> tuple[bytes | None, object | None]:
         """Record until the key comes up. The release IS the endpoint — no
         VAD, no trailing-silence wait; the user says when the turn is over,
-        to the millisecond."""
+        to the millisecond.
+
+        With streaming ears (Grok's websocket), every frame also goes up the
+        wire AS it is recorded — recognition happens inside the speaking
+        time, so on release the transcript is already nearly done. The full
+        audio is kept regardless: if the socket dies, plain transcribe()
+        still has everything.
+        """
+        session = None
+        maker = getattr(self._stt, "stream_session", None)
+        if maker is not None:
+            try:
+                session = maker(audio.SAMPLE_RATE,
+                                hints=self._hints() if self._hints else None)
+            except Exception:               # noqa: BLE001 — batch path remains
+                session = None
         collected: list[bytes] = []
         while self._ptt.held:
             frame = next(self._frames, None)
             if frame is None:
-                return None
+                if session:
+                    session.abort()
+                return None, None
             collected.append(frame)
-        return b"".join(collected)
+            if session is not None:
+                session.send(frame)
+        return b"".join(collected), session
 
     def _ptt_turn(self) -> str | None:
         """One held-key exchange in "both" mode — the stream is already live.
@@ -315,10 +444,10 @@ class VoiceIO:
         self._ptt.take_press()
         self._on_state("hearing")
         self._stream.drain()            # the press marks now; backlog is noise
-        utterance = self._collect_held()
+        utterance, session = self._collect_held()
         if utterance is None:
             return None
-        return self._transcribe_held(utterance)
+        return self._transcribe_held(utterance, session)
 
     def _key_mode_turn(self) -> str | None:
         """One full cycle in key-only mode: wait released, record held.
@@ -341,17 +470,26 @@ class VoiceIO:
         self._ptt.take_press()
         self._stream.resume()
         self._on_state("hearing")
-        utterance = self._collect_held()
+        utterance, session = self._collect_held()
         self._stream.suspend()          # released again before we even transcribe
         if utterance is None:
             return None
-        return self._transcribe_held(utterance)
+        return self._transcribe_held(utterance, session)
 
-    def _transcribe_held(self, utterance: bytes) -> str:
+    def _transcribe_held(self, utterance: bytes, session=None) -> str:
         min_bytes = _MIN_PTT_MS * audio.SAMPLE_RATE * audio.SAMPLE_WIDTH // 1000
         if len(utterance) < min_bytes:
+            if session is not None:
+                session.abort()
             return ""                   # an accidental tap, not speech
-        text = self._transcribe(utterance) or ""
+        text = None
+        if session is not None:
+            # The audio is already up the wire; this only waits for the tail.
+            self.transcribed_seconds += len(utterance) / (audio.SAMPLE_RATE * audio.SAMPLE_WIDTH)
+            with self.turn.stage("stt"):
+                text = session.finish()
+        if text is None:
+            text = self._transcribe(utterance) or ""
         if text:
             print(f"you  > {text}")
         return text
@@ -401,7 +539,44 @@ class VoiceIO:
 
     # ----------------------------------------------------------------- out
 
+    def begin_reply(self) -> "_StreamSpeaker | None":
+        """A live speaker for the turn about to be generated, or None when
+        streaming isn't possible (a voice that can't stream, or turned off)."""
+        if not config.STREAM_REPLIES or not hasattr(self._tts, "stream"):
+            return None
+        self._active_speaker = _StreamSpeaker(self)
+        return self._active_speaker
+
+    def end_reply(self, speaker: "_StreamSpeaker | None", reply: str) -> None:
+        """Wind the streamed turn down — or fall back to the plain path if
+        nothing was actually spoken (no speaker, or the reply held no
+        speakable sentence)."""
+        self._active_speaker = None
+        if speaker is None or (not speaker.spoke and not speaker._buf.strip()):
+            self.speak(reply)
+            return
+        print(f"jarvis> {reply}\n")
+        speaker.close()
+        if speaker.first_audio_ms is not None:
+            self.turn.mark("tts", speaker.first_audio_ms)
+        if speaker.interrupted:
+            print("(interrupted)", flush=True)
+        self._after_turn()
+
+    def abort_reply(self, speaker: "_StreamSpeaker | None") -> None:
+        """The turn blew up mid-generation — cut any sound immediately."""
+        self._active_speaker = None
+        if speaker is not None:
+            speaker.abandon()
+
     def speak(self, text: str) -> None:
+        # Mid-stream speech (a tool's confirmation question) must not overlap
+        # the sentences already playing: finish those first, then speak this
+        # on its own playback as usual.
+        active = self._active_speaker
+        if active is not None:
+            self._active_speaker = None
+            active.close()
         print(f"jarvis> {text}\n")
         self._on_state("speaking")
         started = time.monotonic()

@@ -161,6 +161,11 @@ VOICE_ENABLED = _flag("MANTRIN_VOICE", SETTINGS.get("voice", True))
 # and they are indistinguishable from the outside; this says which one it was.
 SHOW_TIMINGS = _flag("MANTRIN_TIMINGS", SETTINGS.get("timings", False))
 
+# Speak the reply while it is still being generated (first sentence out the
+# moment it exists). On by default; the switch exists for debugging — when
+# something sounds wrong, the first question is "does it also happen unstreamed?"
+STREAM_REPLIES = _flag("MANTRIN_STREAM", SETTINGS.get("stream", True))
+
 
 # X (Twitter) — OAuth 1.0a user-context creds for the user's own account.
 # Set these in the environment to enable the X tools; unset = X disabled.

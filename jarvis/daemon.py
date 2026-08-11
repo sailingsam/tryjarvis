@@ -127,16 +127,16 @@ class _Turns:
             item = self._queue.get()
             if item is None:
                 return
-            text, io, reply_to = item
+            text, io, on_text, reply_to = item
             try:
-                reply_to.put(("ok", self._brain.think(text, io=io)))
+                reply_to.put(("ok", self._brain.think(text, io=io, on_text=on_text)))
             except Exception as e:                       # noqa: BLE001
                 reply_to.put(("error", e))
 
-    def think(self, text: str, io=None) -> str:
+    def think(self, text: str, io=None, on_text=None) -> str:
         """Submit a turn and wait for the reply."""
         reply_to: queue.Queue = queue.Queue(maxsize=1)
-        self._queue.put((text, io, reply_to))
+        self._queue.put((text, io, on_text, reply_to))
         status, value = reply_to.get()
         if status == "error":
             raise value
@@ -227,15 +227,22 @@ def _voice_loop(turns: _Turns, memory) -> None:
                 print("(microphone stream ended — voice off)", flush=True)
                 publish_state("error", "microphone stream ended")
                 return
+            speaker = None
             try:
                 # Timed here because only this loop sees the whole brain call —
                 # and the brain is usually the biggest share of a turn, which is
-                # exactly what --timings exists to show.
+                # exactly what --timings exists to show. The speaker starts
+                # talking DURING that stage: first sentence out while the rest
+                # is still being generated.
                 publish_state("thinking")
+                speaker = io.begin_reply()
                 with io.turn.stage("brain"):
-                    reply = turns.think(text, io=io)
-                io.speak(reply)
+                    reply = turns.think(
+                        text, io=io, on_text=speaker.feed if speaker else None
+                    )
+                io.end_reply(speaker, reply)
             except Exception as e:                      # noqa: BLE001
+                io.abort_reply(speaker)
                 io.speak(f"Something went wrong: {e}")
     finally:
         io.close()

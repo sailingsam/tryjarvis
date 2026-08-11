@@ -13,6 +13,9 @@ Adding a provider means writing `transcribe()` and adding a line to
 
 from __future__ import annotations
 
+import queue
+import threading
+import urllib.parse
 from typing import Protocol
 
 from .. import audio
@@ -141,10 +144,125 @@ class OpenAISTT(_HostedSTT):
 
 
 class GrokSTT(_HostedSTT):
-    """xAI. Cheapest hosted option by a wide margin at the time of writing."""
+    """xAI. Cheapest hosted option by a wide margin at the time of writing.
+
+    Also the first provider here with *streaming* ears: audio goes up the
+    socket while you are still talking, so by the time you let go of the talk
+    key the transcript is already mostly done — the recognition time hides
+    inside the speaking time instead of following it.
+    """
 
     url = "https://api.x.ai/v1/stt"
+    ws_url = "wss://api.x.ai/v1/stt"
     model = "grok-stt"
+
+    def stream_session(self, sample_rate: int, *, hints: str | None = None):
+        """A live session for one utterance, or None if the websocket layer
+        isn't available. Falls back to nothing rather than raising — the
+        caller always still holds the full audio for a plain transcribe()."""
+        try:
+            import websockets  # noqa: F401
+        except ImportError:
+            return None
+        return _GrokStream(self._key, self.ws_url, sample_rate, hints)
+
+
+class _GrokStream:
+    """One utterance over xAI's streaming socket.
+
+    The contract with the voice layer is tiny: `send(frame)` while the key is
+    held, `finish()` on release (returns the transcript or None), `abort()`
+    if the audio turned out to be nothing. All socket work happens on its own
+    threads; a connection still being established just queues frames, so the
+    first syllable is never lost to a handshake.
+    """
+
+    _FINISH_TIMEOUT = 8.0
+
+    def __init__(self, key: str, ws_url: str, sample_rate: int, hints: str | None):
+        self._q: "queue.Queue[bytes | None]" = queue.Queue()
+        self._text: str | None = None
+        self._done = threading.Event()
+        self._failed = False
+        params = [("sample_rate", str(sample_rate)), ("encoding", "pcm")]
+        for term in _keyterms(hints):
+            params.append(("keyterm", term))
+        self._url = f"{ws_url}?{urllib.parse.urlencode(params)}"
+        self._key = key
+        threading.Thread(target=self._run, daemon=True, name="stt-stream").start()
+
+    def send(self, frame: bytes) -> None:
+        if not self._failed:
+            self._q.put(frame)
+
+    def finish(self) -> str | None:
+        """Audio over — return the transcript, or None (caller falls back)."""
+        self._q.put(None)
+        self._done.wait(timeout=self._FINISH_TIMEOUT)
+        return None if self._failed else self._text
+
+    def abort(self) -> None:
+        """The utterance was noise (an accidental tap) — just hang up."""
+        self._failed = True
+        self._q.put(None)
+
+    def _run(self) -> None:
+        try:
+            import json
+
+            from websockets.sync.client import connect
+
+            with connect(self._url,
+                         additional_headers={"Authorization": f"Bearer {self._key}"},
+                         open_timeout=5) as ws:
+
+                def pump() -> None:
+                    while True:
+                        item = self._q.get()
+                        if item is None:
+                            ws.send(json.dumps({"type": "audio.done"}))
+                            return
+                        ws.send(item)
+
+                threading.Thread(target=pump, daemon=True, name="stt-stream-send").start()
+                # The final text arrives in `transcript.partial` events marked
+                # is_final — `transcript.done` closes the session with an EMPTY
+                # text field (measured, not assumed). Segments are keyed by
+                # start time because a finalized segment is re-emitted when
+                # speech_final fires, and appending both would stutter.
+                segments: dict[float, str] = {}
+                for raw in ws:
+                    event = json.loads(raw)
+                    etype = event.get("type")
+                    if etype == "transcript.partial" and event.get("is_final"):
+                        text = (event.get("text") or "").strip()
+                        if text:
+                            segments[float(event.get("start") or 0.0)] = text
+                    elif etype == "transcript.done":
+                        done = (event.get("text") or "").strip()
+                        joined = " ".join(segments[k] for k in sorted(segments))
+                        self._text = done or joined.strip() or None
+                        return
+        except Exception:                   # noqa: BLE001 — fallback handles it
+            self._failed = True
+        finally:
+            self._done.set()
+
+
+def _keyterms(hints: str | None, limit: int = 20) -> list[str]:
+    """The streaming API takes explicit key terms rather than a prompt — pull
+    the proper nouns out of our hint sentence ("Names that may come up: …")."""
+    if not hints:
+        return []
+    _, _, tail = hints.partition(":")
+    terms = []
+    for raw in (tail or hints).replace(".", " ").split(","):
+        term = raw.strip()
+        if term and len(term) <= 50 and term[:1].isupper():
+            terms.append(term)
+        if len(terms) >= limit:
+            break
+    return terms
 
 
 class ExternalDictation:

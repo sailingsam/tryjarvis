@@ -65,8 +65,21 @@ class ClaudeLLM:
         self._model = model
         self._max_tokens = max_tokens
 
-    def generate(self, system: str | list[str], messages: list[dict]) -> str:
-        resp = self._client.messages.create(
+    def _request(self, on_text, **kwargs):
+        """One API round trip. With `on_text`, the response is streamed and
+        every text delta is handed over as it arrives — that callback is how
+        the voice starts speaking the first sentence while the rest of the
+        reply is still being generated. Caching works identically either way."""
+        if on_text is None:
+            return self._client.messages.create(**kwargs)
+        with self._client.messages.stream(**kwargs) as stream:
+            for delta in stream.text_stream:
+                on_text(delta)
+            return stream.get_final_message()
+
+    def generate(self, system: str | list[str], messages: list[dict], on_text=None) -> str:
+        resp = self._request(
+            on_text,
             model=self._model,
             max_tokens=self._max_tokens,
             system=_system_blocks(system),
@@ -74,21 +87,27 @@ class ClaudeLLM:
         )
         return "".join(block.text for block in resp.content if block.type == "text")
 
-    def run_tools(self, system: str | list[str], messages: list[dict], tools: list[dict], executor) -> str:
+    def run_tools(self, system: str | list[str], messages: list[dict], tools: list[dict],
+                  executor, on_text=None) -> str:
         """Agentic reply: let the model call tools, execute them (via `executor`,
         which handles confirmation), feed results back, loop until it answers.
 
         All Anthropic-specific block handling is contained here — the brain
         passes plain-string history + a plain executor and gets plain text back.
         `executor(name, input) -> str` runs the tool and returns its result.
+
+        With `on_text`, text streams out of every round — including the
+        natural preamble before a tool call ("let me check…"), which is
+        exactly what a person would say out loud while reaching for a tool.
         """
         if not tools:
-            return self.generate(system, messages)
+            return self.generate(system, messages, on_text=on_text)
 
         # Local working copy — never mutate the brain's history with tool blocks.
         convo: list[dict] = [{"role": m["role"], "content": m["content"]} for m in messages]
         while True:
-            resp = self._client.messages.create(
+            resp = self._request(
+                on_text,
                 model=self._model,
                 max_tokens=self._max_tokens,
                 system=_system_blocks(system),

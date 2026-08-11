@@ -230,17 +230,23 @@ class Brain:
             return "(none open)"
         return "\n".join(f"- {c.id} — {c.content} (since {c.human_time()})" for c in open_c)
 
-    def think(self, user_text: str, io=None) -> str:
+    def think(self, user_text: str, io=None, on_text=None) -> str:
         """Reply naturally (using tools when helpful); memory updates follow in
-        the background — the user never waits on bookkeeping."""
+        the background — the user never waits on bookkeeping.
+
+        `on_text`, when given, receives the reply as it is generated — the
+        voice layer uses it to start speaking the first sentence while the
+        rest is still being written. The returned string is always the whole
+        reply; history and memory never depend on who was listening."""
         self._remember_turn("user", user_text)
         system = [_REPLY_STATIC, self._context_block(user_text)]
         if self._tools and len(self._tools):
             reply = self._llm.run_tools(
-                system, self._history, self._tools.specs(), self._make_executor(io)
+                system, self._history, self._tools.specs(), self._make_executor(io),
+                on_text=on_text,
             ).strip()
         else:
-            reply = self._llm.generate(system, self._history).strip()
+            reply = self._llm.generate(system, self._history, on_text=on_text).strip()
         self._remember_turn("assistant", reply)
 
         self._updates.put(("extract", list(self._history)))

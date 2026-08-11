@@ -39,6 +39,7 @@ voice = [
     "numpy>=1.24",
     "openwakeword>=0.4",
     "miniaudio>=1.60",
+    "websockets>=12",       # streaming ears (Grok's websocket STT)
 ]
 # The heavy local providers ride separately, carried only by those who
 # choose them.
