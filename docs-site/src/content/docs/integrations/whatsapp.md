@@ -6,8 +6,9 @@ description: Send, receive, and search WhatsApp chats through Mantrin.
 Send, receive, search chats — the flagship integration, and the project's
 own (see
 [whatsapp-bridge/](https://github.com/sailingsam/tryjarvis/tree/main/whatsapp-bridge)
-on GitHub). No clone needed: the block in `mcp.example.json` runs it
-straight from npm via `npx -y mantrin-whatsapp`.
+on GitHub). No clone needed: the block in `jarvis/assets/mcp.example.json`
+runs it straight from npm via `npx -y mantrin-whatsapp` — or let
+`mantrin connect whatsapp` run the whole pairing for you.
 
 ## Setup
 

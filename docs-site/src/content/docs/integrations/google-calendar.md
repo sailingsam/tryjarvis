@@ -17,8 +17,16 @@ description: Ask about your schedule and hold time on your calendar.
    ```
 
 First use opens a browser once to sign in; the token is cached after that.
+`mantrin connect google-calendar` walks the same steps for you.
 
 :::note
 This is the same OAuth client used by [Gmail](/integrations/gmail/) — enable
 both APIs on one project if you want both integrations.
+:::
+
+:::note
+Google ships an official *hosted* Calendar MCP server, and Mantrin already
+speaks to it — but it currently sits behind Google's Workspace Developer
+Preview Program, which doesn't accept personal Gmail accounts. The day it
+goes GA, this page shrinks to "sign in in your browser".
 :::

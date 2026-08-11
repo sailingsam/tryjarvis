@@ -41,8 +41,14 @@ mantrin stop
 mantrin uninstall
 ```
 
+`mantrin restart` and `mantrin start` print success only when it is true —
+they wait for the daemon to answer and the voice to declare itself, and if
+the voice comes up broken they print why, right there.
+
 It also puts a status icon in the top bar (`mantrin tray`): green means
-listening for the wake word, blue means mid-conversation, yellow starting,
-red something's wrong. The tray menu holds a **Mute microphone** hard mute —
-the mic device is released and even the wake word is ignored, while the
-brain and connections keep working.
+ready, blue mid-conversation, yellow starting, red something's wrong, grey
+muted or stopped. The tray menu holds a **Mute microphone** hard mute — the
+mic device is released (your OS's own mic light goes out) and even the wake
+word is ignored, while the brain and connections keep working. Once a talk
+key is set (`mantrin set-key`), a **Listen for** submenu switches between
+wake word, talk key, or both.

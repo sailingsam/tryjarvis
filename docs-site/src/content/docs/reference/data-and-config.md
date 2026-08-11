@@ -18,6 +18,21 @@ Memory is SQLite:
 Open it directly with `sqlite3` and you can read everything Mantrin knows
 about you. Delete the file to give it amnesia.
 
+## The data directory
+
+Everything else lives next to the memory, in the same data directory
+(`data/` in a checkout, `~/.local/share/mantrin/` installed):
+
+- `mcp.json` — which integrations are configured
+- `mcp-<name>.log` — each local server's own chatter, out of your way
+  until something breaks
+- `oauth/<name>.json` — sign-in tokens for hosted servers (mode `0600`,
+  self-refreshing; delete one to sign out)
+- `state.json` and the mute flag — how the daemon and the tray icon talk
+
+Settings saved by `mantrin setup` and `mantrin set-key` (providers, keys,
+the talk key and trigger mode) live in `~/.config/mantrin/config.json`.
+
 ## Integration state
 
 Each integration keeps its own state under its configured data directory —

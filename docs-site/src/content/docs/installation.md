@@ -42,8 +42,9 @@ there is no terminal to keep open. From then on, see
 [Commands](/reference/commands/) for `status`, `logs`, `restart`, `stop`.
 
 It also puts a status icon in the top bar (`mantrin tray`, auto-started at
-login): green means listening for the wake word, blue means
-mid-conversation, yellow starting, red something's wrong.
+login): green means ready (listening for the wake word, or waiting for your
+[talk key](/talking-to-it/#push-to-talk)), blue means mid-conversation,
+yellow starting, red something's wrong, grey muted or stopped.
 
 ## Next
 
