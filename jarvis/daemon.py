@@ -69,24 +69,39 @@ def _x_tools() -> list:
 def _connect_mcp(tools: list) -> list:
     clients = []
     for server in config.load_mcp_servers():
+        name = server.get("name", "?")
         try:
             from .tools.mcp_client import connect
 
-            # Servers run with DATA_DIR as their working directory unless the
-            # block says otherwise: scratch files (spotipy's token cache, for
-            # one) land in one predictable place instead of wherever the
-            # daemon happened to be started from — site-packages, on a pip
-            # install.
+            auth = None
+            if server.get("url") and server.get("auth") == "oauth":
+                # A remote server that wants a signed-in account. The daemon
+                # is headless: it may USE stored tokens (and refresh them),
+                # but the browser dance belongs to `mantrin connect`.
+                from .tools import mcp_oauth
+
+                if not mcp_oauth.signed_in(name):
+                    print(f"(MCP '{name}' off — sign in first: mantrin connect {name})",
+                          flush=True)
+                    continue
+                auth = mcp_oauth.build(name, server["url"], interactive=False)
+
+            # Local servers run with DATA_DIR as their working directory
+            # unless the block says otherwise: scratch files (spotipy's token
+            # cache, for one) land in one predictable place instead of
+            # wherever the daemon happened to be started from —
+            # site-packages, on a pip install.
             client, mcp_tools = connect(
-                server["name"], server["command"], server.get("args", []),
+                name, server.get("command"), server.get("args", []),
                 server.get("env"), server.get("cwd") or str(config.DATA_DIR),
-                errlog_path=str(config.DATA_DIR / f"mcp-{server['name']}.log"),
+                errlog_path=str(config.DATA_DIR / f"mcp-{name}.log"),
+                url=server.get("url"), headers=server.get("headers"), auth=auth,
             )
             clients.append(client)
             tools.extend(mcp_tools)
-            print(f"(MCP '{server['name']}': {len(mcp_tools)} tools)", flush=True)
+            print(f"(MCP '{name}': {len(mcp_tools)} tools)", flush=True)
         except Exception as e:
-            print(f"(MCP '{server.get('name', '?')}' failed to start: {e})", flush=True)
+            print(f"(MCP '{name}' failed to start: {e})", flush=True)
     return clients
 
 

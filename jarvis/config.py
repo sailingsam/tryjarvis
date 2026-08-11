@@ -180,19 +180,23 @@ def load_mcp_servers() -> list[dict]:
     data = json.loads(MCP_CONFIG_FILE.read_text() or "{}")
     servers = []
     for server in data.get("servers", []):
-        env = server.get("env")
-        if isinstance(env, dict):
-            # Expand ${VAR} in env values so secrets (tokens) can live in the
-            # environment instead of on disk in mcp.json.
-            env = {k: os.path.expandvars(str(v)) for k, v in env.items()}
-            # A ${VAR} that survived expansion means the secret isn't set yet.
-            # Skip the server rather than start it with a literal "${TOKEN}" —
-            # so every integration can sit in mcp.json ahead of its keys and
-            # simply light up the day they appear in the environment.
-            missing = sorted({m for v in env.values() for m in re.findall(r"\$\{(\w+)\}", v)})
-            if missing:
-                print(f"(MCP '{server.get('name', '?')}' off — set {', '.join(missing)} to enable)", flush=True)
+        # Expand ${VAR} in env and header values so secrets (tokens) can live
+        # in the environment instead of on disk in mcp.json. A ${VAR} that
+        # survives expansion means the secret isn't set yet: skip the server
+        # rather than start it with a literal "${TOKEN}" — every integration
+        # can sit in mcp.json ahead of its keys and simply light up the day
+        # they appear in the environment.
+        missing: list[str] = []
+        for field in ("env", "headers"):
+            mapping = server.get(field)
+            if not isinstance(mapping, dict):
                 continue
-            server["env"] = env
+            expanded = {k: os.path.expandvars(str(v)) for k, v in mapping.items()}
+            missing += [m for v in expanded.values() for m in re.findall(r"\$\{(\w+)\}", v)]
+            server[field] = expanded
+        if missing:
+            print(f"(MCP '{server.get('name', '?')}' off — set "
+                  f"{', '.join(sorted(set(missing)))} to enable)", flush=True)
+            continue
         servers.append(server)
     return servers

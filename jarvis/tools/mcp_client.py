@@ -43,16 +43,30 @@ def _result_text(result) -> str:
 
 
 class MCPClient:
-    """A persistent connection to one MCP server, usable from sync code."""
+    """A persistent connection to one MCP server, usable from sync code.
 
-    def __init__(self, name: str, command: str, args: list[str], env: dict | None = None,
-                 cwd: str | None = None, errlog_path: str | None = None):
+    Two kinds of server, one client. A *local* server is a process we spawn
+    and speak to over stdio — it lives on this machine, sees this machine's
+    files, and costs this machine's RAM. A *remote* server is a URL — the
+    company runs it, maintains it, updates it; we bring HTTPS and (usually)
+    an OAuth token. Which kind is entirely the block's business: `command`
+    makes it local, `url` makes it remote, and nothing downstream can tell
+    the difference.
+    """
+
+    def __init__(self, name: str, command: str | None = None, args: list[str] | None = None,
+                 env: dict | None = None, cwd: str | None = None,
+                 errlog_path: str | None = None, *, url: str | None = None,
+                 headers: dict | None = None, auth=None):
         self.name = name
         self._command = command
-        self._args = args
+        self._args = args or []
         self._env = env
         self._cwd = cwd
         self._errlog_path = errlog_path
+        self._url = url
+        self._headers = headers
+        self._auth = auth               # httpx auth (an OAuth provider), or None
         self._loop: asyncio.AbstractEventLoop | None = None
         self._thread: threading.Thread | None = None
         self._session = None
@@ -78,11 +92,28 @@ class MCPClient:
         except Exception as e:            # startup/transport failure
             self._error = e
             self._ready.set()
+        finally:
+            # Drain whatever the transport left mid-flight, or the loop's
+            # destructor complains about it at some later garbage collection.
+            pending = asyncio.all_tasks(self._loop)
+            for task in pending:
+                task.cancel()
+            if pending:
+                self._loop.run_until_complete(
+                    asyncio.gather(*pending, return_exceptions=True)
+                )
+            self._loop.close()
 
     async def _serve(self) -> None:
+        if self._url:
+            await self._serve_remote()
+        else:
+            await self._serve_local()
+
+    async def _serve_local(self) -> None:
         import sys
 
-        from mcp import ClientSession, StdioServerParameters
+        from mcp import StdioServerParameters
         from mcp.client.stdio import stdio_client
 
         params = StdioServerParameters(
@@ -95,15 +126,39 @@ class MCPClient:
         errlog = open(self._errlog_path, "a") if self._errlog_path else sys.stderr
         try:
             async with stdio_client(params, errlog=errlog) as (read, write):
-                async with ClientSession(read, write) as session:
-                    await session.initialize()
-                    self.tools = (await session.list_tools()).tools
-                    self._session = session
-                    self._ready.set()
-                    await self._stop.wait()   # keep the session open until close()
+                await self._session_loop(read, write)
         finally:
             if errlog is not sys.stderr:
                 errlog.close()
+
+    async def _serve_remote(self) -> None:
+        import httpx2
+        from mcp.client.streamable_http import streamable_http_client
+        from mcp.shared._httpx_utils import create_mcp_http_client
+
+        # The SDK's own client factory, not plain httpx: the SDK runs on a
+        # bundled fork (httpx2), and its OAuth provider is an httpx2.Auth —
+        # a stock httpx.AsyncClient rejects it outright. Generous read
+        # timeout because a streamable-HTTP server holds the response open
+        # on purpose. The auth object (when present) transparently attaches
+        # tokens and refreshes them through its own storage.
+        client = create_mcp_http_client(
+            headers=self._headers or None, auth=self._auth,
+            timeout=httpx2.Timeout(30.0, read=300.0),
+        )
+        async with client:
+            async with streamable_http_client(self._url, http_client=client) as (read, write):
+                await self._session_loop(read, write)
+
+    async def _session_loop(self, read, write) -> None:
+        from mcp import ClientSession
+
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            self.tools = (await session.list_tools()).tools
+            self._session = session
+            self._ready.set()
+            await self._stop.wait()       # keep the session open until close()
 
     def call(self, remote_name: str, arguments: dict, timeout: float = 45.0) -> str:
         """45s, not forever: a tool that hangs (a server silently waiting for
@@ -202,9 +257,12 @@ def _infer_confirm(meta) -> bool:
     return any(v in name for v in _MUTATION_VERBS)
 
 
-def connect(name: str, command: str, args: list[str], env: dict | None = None,
-            cwd: str | None = None, errlog_path: str | None = None):
-    """Start a server and return (client, [MCPTool, ...])."""
-    client = MCPClient(name, command, args, env, cwd, errlog_path)
+def connect(name: str, command: str | None = None, args: list[str] | None = None,
+            env: dict | None = None, cwd: str | None = None,
+            errlog_path: str | None = None, *, url: str | None = None,
+            headers: dict | None = None, auth=None):
+    """Start (or reach) a server and return (client, [MCPTool, ...])."""
+    client = MCPClient(name, command, args, env, cwd, errlog_path,
+                       url=url, headers=headers, auth=auth)
     client.start()
     return client, [MCPTool(client, m) for m in client.tools]

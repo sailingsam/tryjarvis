@@ -48,8 +48,10 @@ class Spec:
     docs: str = ""                  # the page where the key is created
     steps: tuple[str, ...] = ()     # what to do on that page
     keys: tuple[Key, ...] = ()
-    needs: tuple[str, ...] = ()     # binaries the server runs on
+    needs: tuple[str, ...] = ()     # binaries the server runs on (local only)
     mcp: bool = True                # False → keys only, no mcp.json block
+    oauth: bool = False             # remote server; sign in via browser, no keys
+    scope: str = ""                 # exact OAuth scopes; empty = server's default
 
 
 REGISTRY: dict[str, Spec] = {
@@ -69,38 +71,45 @@ REGISTRY: dict[str, Spec] = {
         keys=(Key("SLACK_XOXP_TOKEN", "Slack user OAuth token"),),
         needs=("npx",),
     ),
+    # Google's official hosted Gmail/Calendar MCP servers exist and our remote
+    # transport speaks to them fine — but they sit behind the Workspace
+    # Developer Preview Program, which does not accept personal Gmail
+    # accounts. Until Google opens them up, the community servers below are
+    # what actually works for a person. The day they go GA: url + oauth
+    # blocks, and two of these steps disappear.
     "google-calendar": Spec(
         "google-calendar", '"what\'s on today?", "block Thursday 4pm with Ria"',
         docs="https://console.cloud.google.com/apis/credentials",
-        steps=("Create/select a project and enable the Google Calendar API.",
-               "Credentials → Create credentials → OAuth client ID → Desktop app.",
-               "Download the client JSON — that file is what Mantrin needs."),
+        steps=("One-time, in a Google Cloud project (console.cloud.google.com):",
+               "1. APIs & Services → Library → search 'Google Calendar API' → Enable",
+               "2. Credentials → + Create credentials → OAuth client ID →",
+               "   Desktop app → Create → 'Download JSON' on the new client",
+               "That downloaded file is what Mantrin needs next."),
         keys=(Key("GOOGLE_OAUTH_CREDENTIALS", "path to the downloaded OAuth JSON", path=True),),
         needs=("npx",),
     ),
     "gmail": Spec(
         "gmail", '"anything important in my inbox?"',
         docs="https://console.cloud.google.com/apis/credentials",
-        steps=("Uses the same OAuth client as Calendar — enable the Gmail API on it too.",
-               "If you already connected Calendar, just point at the same JSON."),
+        steps=("Uses the same OAuth client JSON as Calendar — one extra switch:",
+               "APIs & Services → Library → search 'Gmail API' → Enable.",
+               "Then point at the same downloaded JSON; a browser sign-in follows."),
         keys=(Key("_GMAIL_OAUTH_JSON", "path to the OAuth client JSON", path=True),),
         needs=("npx",),
     ),
     "notion": Spec(
         "notion", '"add this to my ideas page"',
-        docs="https://www.notion.so/profile/integrations",
-        steps=("Create an internal integration and copy its secret.",
-               "In Notion, share the pages it should see: page ⋯ → Connections."),
-        keys=(Key("NOTION_TOKEN", "Notion integration secret"),),
-        needs=("npx",),
+        steps=("Notion's official server — no keys.",
+               "A browser will open: sign in and pick the pages Mantrin may see."),
+        oauth=True,
     ),
     "github": Spec(
         "github", '"any reviews waiting on me?", "what broke in CI?"',
         docs="https://github.com/settings/personal-access-tokens",
-        steps=("Create a fine-grained personal access token",
+        steps=("GitHub's official hosted server — nothing to install (no Docker).",
+               "Create a fine-grained personal access token",
                "scoped to the repos you care about."),
         keys=(Key("GITHUB_PAT", "GitHub personal access token"),),
-        needs=("docker",),
     ),
     "home-assistant": Spec(
         "home-assistant", '"turn off the bedroom lights"',
@@ -128,11 +137,10 @@ REGISTRY: dict[str, Spec] = {
     ),
     "google-maps": Spec(
         "google-maps", '"how long to the airport right now?"',
-        docs="https://console.cloud.google.com/apis/credentials",
-        steps=("In a Google Cloud project, enable the Places, Directions and",
-               "Distance Matrix APIs, then create an API key."),
+        docs="https://console.cloud.google.com/google/maps-apis/credentials",
+        steps=("Google's official Grounding Lite server (places, routes, weather).",
+               "In a Google Cloud project, create (or reuse) a Maps API key."),
         keys=(Key("GOOGLE_MAPS_API_KEY", "Google Maps API key"),),
-        needs=("npx",),
     ),
     "x": Spec(
         "x", '"post this", "any replies to my last post?"',
@@ -170,18 +178,31 @@ def _mcp_config() -> dict:
 
 
 def _seed_block(name: str) -> None:
-    """Put the integration's block into the live mcp.json, once."""
-    data = _mcp_config()
-    servers = data.setdefault("servers", [])
-    if any(s.get("name") == name for s in servers):
-        return                          # already there — keys are the question
+    """Put the integration's block into the live mcp.json, once.
+
+    An existing block is left alone — it may carry the user's own edits —
+    with one exception: when the template's *transport* changed (a local
+    `command` became a hosted `url`), the old block is a fossil of a server
+    we no longer recommend, and keeping it would mean `connect` signs you
+    in to the new server while the daemon keeps starting the old one."""
     block = _example_block(name)
     if block is None:
         raise SystemExit(f"No template for '{name}'.")
-    servers.append(block)
+    data = _mcp_config()
+    servers = data.setdefault("servers", [])
+    for i, existing in enumerate(servers):
+        if existing.get("name") != name:
+            continue
+        if ("url" in existing) == ("url" in block):
+            return                      # same kind — keys are the question
+        servers[i] = block
+        print(f"  Upgraded the {name} block (local server → official hosted).")
+        break
+    else:
+        servers.append(block)
+        print(f"  Added the {name} block to {config.MCP_CONFIG_FILE}.")
     config.MCP_CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
     config.MCP_CONFIG_FILE.write_text(json.dumps(data, indent=2) + "\n")
-    print(f"  Added the {name} block to {config.MCP_CONFIG_FILE}.")
 
 
 def _open_page(url: str) -> None:
@@ -298,14 +319,61 @@ def _auth_spotify() -> bool:
 
 
 def _auth_gmail(oauth_json: str) -> bool:
-    """Gmail's server keeps its own credentials in ~/.gmail-mcp — copy the
-    OAuth client there and run its one-time browser sign-in."""
+    """Gmail's community server keeps its own credentials in ~/.gmail-mcp —
+    copy the OAuth client there and run its one-time browser sign-in."""
     keys_dir = Path.home() / ".gmail-mcp"
     keys_dir.mkdir(parents=True, exist_ok=True)
     shutil.copy(oauth_json, keys_dir / "gcp-oauth.keys.json")
     print("\n  A browser will open for the one-time Google sign-in…")
     result = subprocess.run(["npx", "-y", "@gongrzhe/server-gmail-autoauth-mcp", "auth"])
     return result.returncode == 0
+
+
+def _oauth_sign_in(name: str, url: str, spec: Spec) -> bool:
+    """The one-time browser sign-in for a remote server. Connecting once
+    with an interactive auth provider IS the flow: the SDK discovers the
+    server's endpoints, registers Mantrin, sends the browser out, and the
+    tokens land in DATA_DIR/oauth/ — where the headless daemon will find
+    them from now on."""
+    from .tools import mcp_client, mcp_oauth
+
+    # Pre-registered client credentials (Google's world), when the spec
+    # collected them; DCR-capable servers get none and register themselves.
+    client_id = client_secret = None
+    for key in spec.keys:
+        if key.env.endswith("CLIENT_ID"):
+            client_id = os.environ.get(key.env)
+        elif key.env.endswith("CLIENT_SECRET"):
+            client_secret = os.environ.get(key.env)
+
+    # A fresh consent must not inherit a stale token's scopes.
+    mcp_oauth.sign_out(name)
+    try:
+        auth = mcp_oauth.build(name, url, interactive=True,
+                               client_id=client_id, client_secret=client_secret,
+                               scope=spec.scope or None)
+        client, tools = mcp_client.connect(name, url=url, auth=auth)
+        if not mcp_oauth.signed_in(name) and tools:
+            # Some servers (Google's) list their tools to anyone and only
+            # challenge a real call. Poke one: the 401 is what starts the
+            # browser dance. Whatever the tool says back — including an
+            # error about the empty arguments we just sent it — is
+            # irrelevant; the tokens landing on disk is the outcome.
+            try:
+                client.call(tools[0]._remote_name, {}, timeout=320)
+            except Exception:               # noqa: BLE001 — the poke may die rudely
+                pass
+        ok = mcp_oauth.signed_in(name)
+        client.close()
+        if ok:
+            print(f"  Signed in — {len(tools)} tools ready.")
+        else:
+            print("  (the server never asked for a sign-in, and no token arrived "
+                  "— `mantrin logs` may know more)")
+        return ok
+    except Exception as e:                  # noqa: BLE001 — reported, not raised
+        print(f"  (sign-in failed: {e})")
+        return False
 
 
 # ----------------------------------------------------------- verification
@@ -331,7 +399,7 @@ def _verdict(name: str) -> None:
     if report and ": " in report and "tools)" in report:
         tools = report.rsplit(":", 1)[-1].strip(" ()\n")
         print(f"\nConnected — {name} is live ({tools}). Try: {spec.what}")
-    elif report and "off — set" in report:
+    elif report and "off —" in report:
         print(f"\nStill waiting: {report[report.index('('):].strip()}")
     elif report:
         print(f"\nIt didn't come up cleanly: {report.strip()}")
@@ -381,6 +449,11 @@ def _connect(name: str | None) -> int:
         print("Nothing saved — run `mantrin connect {0}` again any time.".format(name))
         return 1
 
+    if spec.oauth:
+        block = _example_block(name) or {}
+        if not _oauth_sign_in(name, block.get("url", ""), spec):
+            print("The sign-in didn't finish — run it again any time.")
+            return 1
     if name == "gmail":
         if not _auth_gmail(got["_GMAIL_OAUTH_JSON"]):
             print("The Google sign-in didn't finish — re-run to try again.")
@@ -416,7 +489,9 @@ def _list() -> int:
             report = _daemon_reports(name) or ""
             if "tools)" in report:
                 state = "connected"
-            elif "off — set" in report:
+            elif "sign in first" in report:
+                state = "waiting for sign-in"
+            elif "off —" in report:
                 state = "waiting for its key"
             elif "failed" in report:
                 state = "failing — `mantrin logs`"

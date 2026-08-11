@@ -33,24 +33,15 @@
     },
     {
       "name": "notion",
-      "command": "npx",
-      "args": ["-y", "@notionhq/notion-mcp-server"],
-      "env": {
-        "NOTION_TOKEN": "${NOTION_TOKEN}"
-      }
+      "url": "https://mcp.notion.com/mcp",
+      "auth": "oauth"
     },
     {
       "name": "github",
-      "command": "docker",
-      "args": [
-        "run", "-i", "--rm",
-        "-e", "GITHUB_PERSONAL_ACCESS_TOKEN",
-        "-e", "GITHUB_TOOLSETS",
-        "ghcr.io/github/github-mcp-server"
-      ],
-      "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PAT}",
-        "GITHUB_TOOLSETS": "context,repos,issues,pull_requests,notifications"
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": {
+        "Authorization": "Bearer ${GITHUB_PAT}",
+        "X-MCP-Toolsets": "context,repos,issues,pull_requests,notifications"
       }
     },
     {
@@ -78,10 +69,9 @@
     },
     {
       "name": "google-maps",
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-google-maps"],
-      "env": {
-        "GOOGLE_MAPS_API_KEY": "${GOOGLE_MAPS_API_KEY}"
+      "url": "https://mapstools.googleapis.com/mcp",
+      "headers": {
+        "X-Goog-Api-Key": "${GOOGLE_MAPS_API_KEY}"
       }
     }
   ]

@@ -99,23 +99,11 @@ def _dictation_io():
 def _connect_mcp(tools: list) -> list:
     """Start any MCP servers from config, append their tools to `tools`, and
     return the live clients (so the caller can close them on exit). A server
-    that fails to start is skipped with a note — it never blocks the session."""
-    clients = []
-    for server in config.load_mcp_servers():
-        try:
-            from .tools.mcp_client import connect
+    that fails to start is skipped with a note — it never blocks the session.
+    Kept in step with daemon._connect_mcp, which is the one that usually runs."""
+    from .daemon import _connect_mcp as connect_all
 
-            client, mcp_tools = connect(
-                server["name"], server["command"], server.get("args", []),
-                server.get("env"), server.get("cwd") or str(config.DATA_DIR),
-                errlog_path=str(config.DATA_DIR / f"mcp-{server['name']}.log"),
-            )
-            clients.append(client)
-            tools.extend(mcp_tools)
-            print(f"(MCP '{server['name']}': {len(mcp_tools)} tools)")
-        except Exception as e:
-            print(f"(MCP '{server.get('name', '?')}' failed to start: {e})")
-    return clients
+    return connect_all(tools)
 
 
 def _show_memory() -> None:
