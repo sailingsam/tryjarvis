@@ -502,6 +502,72 @@ h2{font-size:var(--t-h2);max-width:22ch}
 @keyframes chipOut{to{opacity:0;transform:translateY(-14px)}}
 @keyframes chipIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 
+/* the hands — real logos drifting past, one in the spotlight */
+.hands{overflow:hidden;text-align:center;min-height:calc(100svh - 3.8rem);
+  display:flex;align-items:center}
+.hands>.wrap{width:100%}
+.hands h2{margin-inline:auto;max-width:none}
+.hands .say{margin-inline:auto;max-width:52ch}
+.spot{display:grid;justify-items:center;gap:.4rem;border:1px solid var(--hair);border-radius:18px;
+  background:var(--surface);width:min(30rem,100%);margin:clamp(1.2rem,2.5vh,1.8rem) auto 0;
+  padding:1.3rem 1.2rem 1.2rem}
+.slogo{display:grid;place-items:center;width:3.4rem;height:3.4rem;border-radius:14px;
+  background:var(--bg);border:1px solid var(--hair)}
+.slogo svg{width:2.1rem;height:2.1rem}
+.sname{color:var(--amber-dp)}
+.squote{font-family:'Spectral',Georgia,serif;font-size:clamp(1.05rem,1rem + .3vw,1.25rem);
+  color:var(--ink);line-height:1.4;max-width:30ch}
+.sres{display:flex;align-items:center;gap:.5rem;color:var(--body);font-size:.95rem}
+.spot .z{transition:opacity .28s var(--ease)}
+.spot.swap .z{opacity:0}
+/* the dock: card takes the brand's colour while a hand is aboard */
+.spot{position:relative;transition:border-color .4s,box-shadow .4s}
+.spot.dock{border-color:color-mix(in oklab, var(--bc, oklch(0.74 0.155 72)) 55%, transparent);
+  box-shadow:0 0 0 5px color-mix(in oklab, var(--bc, oklch(0.74 0.155 72)) 14%, transparent),
+  0 22px 55px -24px color-mix(in oklab, var(--bc, oklch(0.74 0.155 72)) 50%, transparent)}
+.sname{display:inline-flex;align-items:center;gap:.45rem}
+.sname::before{content:"";width:.38rem;height:.38rem;border-radius:50%;
+  background:var(--bc, var(--amber));flex:none;transition:background .3s}
+.squote .w{display:inline-block}
+.js .squote .w{animation:wIn .45s var(--ease) both;animation-delay:var(--d,0ms)}
+.js .sres .w2{display:inline-flex;animation:memIn .45s var(--ease) both;animation-delay:var(--d,0ms)}
+/* a chip about to fly, and the hole it leaves behind */
+.lchip.lit{border-color:var(--bc,var(--amber));transform:translateY(-3px);
+  box-shadow:0 0 0 5px color-mix(in oklab, var(--bc, #d99a2b) 22%, transparent)}
+.lchip.ghost{opacity:.25;transform:none;box-shadow:none;border-style:dashed}
+.flyer{position:fixed;z-index:60;pointer-events:none;display:grid;place-items:center;
+  background:var(--bg);border:1px solid var(--hair);border-radius:12px;
+  box-shadow:0 18px 44px -18px rgba(0,0,0,.3);will-change:transform;
+  transition:transform .58s var(--ease)}
+.flyer svg{width:68%;height:68%}
+.belt{margin-top:clamp(1.3rem,3vh,2rem);display:grid;gap:.7rem}
+.mqwrap{overflow:hidden;
+  mask-image:linear-gradient(90deg,transparent,#000 9%,#000 91%,transparent);
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 9%,#000 91%,transparent)}
+.mq{display:flex;gap:.65rem;width:max-content;padding-block:.25rem;animation:mqx 34s linear infinite}
+.mq.mqr{animation-direction:reverse;animation-duration:40s}
+.mqwrap:hover .mq{animation-play-state:paused}
+@keyframes mqx{to{transform:translateX(-50%)}}
+.lchip{cursor:pointer;display:inline-flex;align-items:center;gap:.6rem;font:inherit;
+  background:var(--bg);border:1px solid var(--hair);border-radius:12px;padding:.6rem .95rem;
+  color:var(--body);transition:border-color .3s,box-shadow .3s,transform .3s var(--ease)}
+.lchip:hover{border-color:var(--amber);transform:translateY(-2px);
+  box-shadow:0 10px 24px -16px oklch(0.60 0.16 64 / .8)}
+.lchip svg{width:1.45rem;height:1.45rem;flex:none}
+.lchip .mono{color:var(--body)}
+.lchip.more{cursor:default;border-style:dashed;color:var(--amber-dp)}
+.lchip.more:hover{transform:none;box-shadow:none;border-color:var(--amber)}
+/* small screens: logos only, so more hands fit in view — the spotlight carries the name */
+@media(max-width:640px){
+  .lchip[data-k]{padding:.6rem;border-radius:12px}
+  .lchip[data-k] .mono{display:none}
+  .lchip[data-k] svg{width:1.6rem;height:1.6rem}
+  .mq{gap:.55rem}
+}
+:root[data-theme="dark"] .lg-gh path{fill:oklch(0.9 0.01 85)}
+:root[data-theme="dark"] .lg-x path{fill:oklch(0.9 0.01 85)}
+:root[data-theme="dark"] .gmail-tile{}
+
 /* the close — the name on the left, the ask on the right */
 .close{position:relative;overflow:clip;border-top:0;
   background:linear-gradient(180deg, oklch(0.74 0.155 72 / .10), oklch(0.74 0.155 72 / .03) 55%, transparent)}
@@ -740,6 +806,57 @@ footer{position:relative;border-top:1px solid var(--hair);overflow:hidden;
   </div>
 </section>
 
+<section class="hands" id="hands">
+  <div class="wrap">
+    <h2>Everything you already use, <em style="font-style:normal;color:var(--amber-lg)">connected.</em></h2>
+    <p class="say">Eleven hands today, and counting. Click one — watch what a sentence does.</p>
+
+    <!-- the spotlight: one integration at a time, what you say, what happens -->
+    <div class="spot" id="spot" aria-hidden="true">
+      <span class="slogo" id="spot-logo"></span>
+      <span class="sname mono" id="spot-name">whatsapp</span>
+      <p class="squote" id="spot-quote">“Tell Mira I’m running late.”</p>
+      <p class="sres" id="spot-res"><span class="tick"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"/></svg></span><span>sent</span></p>
+    </div>
+
+    <!-- two belts of real logos drifting past, opposite ways -->
+    <div class="belt" id="belt" aria-hidden="false">
+      <div class="mqwrap"><div class="mq" id="mq1"><button type="button" class="lchip" data-k="whatsapp"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#25D366"/><path fill="#fff" d="M12 5.2a6.8 6.8 0 0 0-5.9 10.2L5 18.9l3.6-1a6.8 6.8 0 1 0 3.4-12.7zm3.9 9.4c-.2.5-1 .9-1.5 1-.5.1-1 .1-1.6-.1-2.5-.9-4.2-3.3-4.4-3.6-.1-.2-.9-1.3-.9-2.4 0-1.1.6-1.6.8-1.9.2-.2.5-.3.6-.3h.5c.1 0 .3 0 .5.4l.7 1.8c.1.2.1.4 0 .5l-.3.5-.4.4c-.1.1-.2.3-.1.5.1.3.6 1 1.3 1.7.9.8 1.6 1 1.9 1.2.2.1.4.1.5-.1l.7-.9c.2-.2.3-.2.6-.1l1.8.8c.3.1.4.2.5.3 0 .1 0 .6-.2 1.1z"/></svg><span class="mono">whatsapp</span></button><button type="button" class="lchip" data-k="gmail"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="4.5" width="19" height="15" rx="2" fill="#fff" stroke="#dadce0" stroke-width="0.6"/><path d="M2.5 7.5v9.5" stroke="#4285F4" stroke-width="2.4"/><path d="M21.5 7.5v9.5" stroke="#34A853" stroke-width="2.4"/><path d="M3.4 6.4 12 13l8.6-6.6" fill="none" stroke="#EA4335" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="mono">gmail</span></button><button type="button" class="lchip" data-k="calendar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3.5" width="18" height="17" rx="2.5" fill="#4285F4"/><rect x="5.6" y="7" width="12.8" height="10.8" rx="1" fill="#fff"/><text x="12" y="15.3" font-size="7.4" font-weight="700" fill="#4285F4" text-anchor="middle" font-family="Manrope,system-ui,sans-serif">31</text></svg><span class="mono">calendar</span></button><button type="button" class="lchip" data-k="notion"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3" fill="#fff" stroke="#37352F" stroke-width="1.1"/><text x="12" y="16.6" font-size="11.5" font-family="Georgia,serif" font-weight="700" fill="#37352F" text-anchor="middle">N</text></svg><span class="mono">notion</span></button><button type="button" class="lchip" data-k="github"><svg viewBox="0 0 24 24" aria-hidden="true" class="lg-gh"><path fill="#181717" d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.757-1.333-1.757-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg><span class="mono">github</span></button><button type="button" class="lchip" data-k="spotify"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#1DB954"/><path fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" d="M7 9.7c3.3-.9 6.8-.6 9.6 1M7.5 12.5c2.8-.7 5.6-.4 7.9.9M8.1 15.1c2.1-.5 4.3-.3 6.1.7"/></svg><span class="mono">spotify</span></button></div></div>
+      <div class="mqwrap"><div class="mq mqr" id="mq2"><button type="button" class="lchip" data-k="home assistant"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#18BCF2" d="M12 2.6 2.8 11h2.4v9.5h5.3v-4.2a1.5 1.5 0 1 1 3 0v4.2h5.3V11h2.4z"/></svg><span class="mono">home assistant</span></button><button type="button" class="lchip" data-k="maps"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#EA4335" d="M12 2.4A6.6 6.6 0 0 0 5.4 9c0 5 6.6 12.6 6.6 12.6S18.6 14 18.6 9A6.6 6.6 0 0 0 12 2.4z"/><circle cx="12" cy="9" r="2.4" fill="#fff"/></svg><span class="mono">maps</span></button><button type="button" class="lchip" data-k="weather"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10.5" r="4.6" fill="#FBBF24"/><path fill="#cfd8e2" d="M9.5 20h9.2a3.6 3.6 0 0 0 .5-7.2 5.2 5.2 0 0 0-9.8 1A3.3 3.3 0 0 0 9.5 20z"/></svg><span class="mono">weather</span></button><button type="button" class="lchip" data-k="x"><svg viewBox="0 0 24 24" aria-hidden="true" class="lg-x"><path fill="#0f1419" d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg><span class="mono">x</span></button><button type="button" class="lchip" data-k="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="5.6" fill="none" stroke="#4285F4" stroke-width="2.4"/><path d="M14.9 14.9 20 20" stroke="#EA4335" stroke-width="2.6" stroke-linecap="round"/></svg><span class="mono">search</span></button><span class="lchip more mono">+ anything that speaks mcp</span></div></div>
+    </div>
+  </div>
+</section>
+
+
+
+
+
+<section class="voice" id="voice">
+  <div class="wrap">
+    <div>
+      <h2 class="rv">It doesn't wait to be asked.</h2>
+      <p class="rv">A good chief of staff notices first. Mantrin watches what's slipping and <b>speaks up while there's still time to fix it.</b></p>
+      <p class="rv">Fewer things to carry, not more pings. And anything that touches other people — <b>it asks you first.</b></p>
+    </div>
+
+    <div class="heard rv">
+      <div class="wave" aria-hidden="true">
+        <i style="--h:30%;--d:0ms"></i><i style="--h:62%;--d:90ms"></i><i style="--h:100%;--d:180ms"></i>
+        <i style="--h:74%;--d:270ms"></i><i style="--h:44%;--d:360ms"></i><i style="--h:88%;--d:450ms"></i>
+        <i style="--h:56%;--d:540ms"></i><i style="--h:96%;--d:630ms"></i><i style="--h:38%;--d:720ms"></i>
+        <i style="--h:68%;--d:810ms"></i><i style="--h:26%;--d:900ms"></i>
+      </div>
+      <span class="mono heardlbl">mantrin, unprompted</span>
+      <p class="spoken" id="h-spoken">“Your mum's birthday is in ten days. Flowers again, or something braver this year?”</p>
+      <p class="hact" id="h-act"><span class="tick"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"/></svg></span><span>Noted — two ideas saved, reminder set for Saturday.</span></p>
+      <p class="after">Ten days out. You hadn't thought of it yet.</p>
+    </div>
+
+  </div>
+</section>
+
+
+
 <section class="plug" id="plug">
   <div class="wrap">
     <h2 class="rv">Every part <em>unplugs.</em></h2>
@@ -764,36 +881,7 @@ footer{position:relative;border-top:1px solid var(--hair);overflow:hidden;
         <span class="port"><span class="pchip">SQLite — on your disk</span></span>
       </div>
     </div>
-    <p class="plugnote mono rv">and the hands — any mcp server clicks in:</p>
-    <div class="mcps rv" aria-hidden="true">
-      <span>WhatsApp</span><span>Gmail</span><span>Calendar</span><span>Notion</span>
-      <span>GitHub</span><span>Spotify</span><span>Home Assistant</span><span>Maps</span>
-      <span>Weather</span><span>X</span><span>web search</span><span class="more">+ anything that speaks mcp</span>
-    </div>
-  </div>
-</section>
-
-<section class="voice" id="voice">
-  <div class="wrap">
-    <div>
-      <h2 class="rv">It doesn't wait to be asked.</h2>
-      <p class="rv">A good chief of staff notices first. Mantrin watches what's slipping and <b>speaks up while there's still time to fix it.</b></p>
-      <p class="rv">Fewer things to carry, not more pings. And anything that touches other people — <b>it asks you first.</b></p>
-    </div>
-
-    <div class="heard rv">
-      <div class="wave" aria-hidden="true">
-        <i style="--h:30%;--d:0ms"></i><i style="--h:62%;--d:90ms"></i><i style="--h:100%;--d:180ms"></i>
-        <i style="--h:74%;--d:270ms"></i><i style="--h:44%;--d:360ms"></i><i style="--h:88%;--d:450ms"></i>
-        <i style="--h:56%;--d:540ms"></i><i style="--h:96%;--d:630ms"></i><i style="--h:38%;--d:720ms"></i>
-        <i style="--h:68%;--d:810ms"></i><i style="--h:26%;--d:900ms"></i>
-      </div>
-      <span class="mono heardlbl">mantrin, unprompted</span>
-      <p class="spoken" id="h-spoken">“Your mum's birthday is in ten days. Flowers again, or something braver this year?”</p>
-      <p class="hact" id="h-act"><span class="tick"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"/></svg></span><span>Noted — two ideas saved, reminder set for Saturday.</span></p>
-      <p class="after">Ten days out. You hadn't thought of it yet.</p>
-    </div>
-
+    <p class="plugnote mono rv">those hands you just met? every one of them unplugs too.</p>
   </div>
 </section>
 
@@ -1379,6 +1467,127 @@ $ mantrin
         if(it.isIntersecting){ restart() } else { clearTimeout(timer) } })
       },{threshold:.3}).observe(rack);
     } else { restart() }
+  })();
+
+  /* ---- the spotlight: a chip lifts out of the belt, docks, acts, and flies home ---- */
+  (function(){
+    var spot=document.getElementById('spot'); if(!spot) return;
+    var logo=document.getElementById('spot-logo'), name=document.getElementById('spot-name'),
+        quote=document.getElementById('spot-quote'), res=document.getElementById('spot-res'),
+        belt=document.getElementById('belt'), timer, busy=false, cur='whatsapp';
+    var TICK='<span class="tick"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"/></svg></span>';
+    var SAY={
+      'whatsapp':['“Tell Mira I'+"’"+'m running late.”','sent'],
+      'gmail':['“Anything important this morning?”','two that matter'],
+      'calendar':['“Find me an hour with Tom.”','Tuesday, held'],
+      'notion':['“Save that idea to my notes.”','filed'],
+      'github':['“Anything waiting on my review?”','PR #42 is'],
+      'spotify':['“Something quiet, please.”','playing'],
+      'home assistant':['“Dim the living room.”','done'],
+      'maps':['“How far is the airport?”','40 minutes'],
+      'weather':['“Umbrella today?”','yes — rain by noon'],
+      'x':['“Post: shipping day.”','posted'],
+      'search':['“Who won last night?”','found it']
+    };
+    /* monochrome marks glow amber; the colourful ones glow their own colour */
+    var BC={'whatsapp':'#25D366','gmail':'#EA4335','calendar':'#4285F4','spotify':'#1DB954',
+            'home assistant':'#18BCF2','maps':'#EA4335','weather':'#FBBF24','search':'#4285F4'};
+    var KEYS=Object.keys(SAY);
+    function chipsFor(k){ return [].slice.call(belt.querySelectorAll('.lchip[data-k="'+k+'"]')) }
+    function fill(k){
+      cur=k;
+      var c=chipsFor(k)[0], s=c&&c.querySelector('svg');
+      logo.innerHTML=''; if(s) logo.appendChild(s.cloneNode(true));
+      name.textContent=k;
+      quote.textContent=SAY[k][0];
+      res.innerHTML=TICK+'<span>'+SAY[k][1]+'</span>';
+      spot.style.setProperty('--bc', BC[k]||'');
+    }
+    function lockSpot(){
+      var keep=cur; spot.style.minHeight='';
+      var h=0; KEYS.forEach(function(k){ fill(k); h=Math.max(h,spot.offsetHeight) });
+      fill(keep); spot.style.minHeight=h+'px';
+    }
+    /* the flight: fixed-position clone from one rect to another */
+    function fly(fromRect,toRect,svg,done){
+      var f=document.createElement('span'); f.className='flyer';
+      f.style.left=fromRect.left+'px'; f.style.top=fromRect.top+'px';
+      f.style.width=fromRect.width+'px'; f.style.height=fromRect.height+'px';
+      if(svg) f.appendChild(svg.cloneNode(true));
+      document.body.appendChild(f);
+      var dx=toRect.left+toRect.width/2-(fromRect.left+fromRect.width/2),
+          dy=toRect.top+toRect.height/2-(fromRect.top+fromRect.height/2),
+          sc=toRect.width/fromRect.width;
+      f.getBoundingClientRect();                       // settle, then launch
+      f.style.transform='translate('+dx+'px,'+dy+'px) scale('+sc+')';
+      setTimeout(function(){ f.remove(); done&&done() },590);
+    }
+    function visibleChip(k){
+      var wraps=belt.querySelectorAll('.mqwrap');
+      var cands=chipsFor(k).filter(function(c){
+        var r=c.getBoundingClientRect(), w=c.closest('.mqwrap').getBoundingClientRect();
+        return r.left>w.left+50 && r.right<w.right-50 && r.top>0 && r.bottom<innerHeight;
+      });
+      return cands[0]||null;
+    }
+    function dock(k, chip){
+      if(busy) return; busy=true;
+      chip=chip||visibleChip(k);
+      var s=SAY[k];
+      if(!chip){ fill(k); busy=false; return }
+      chip.classList.add('lit');
+      spot.style.setProperty('--bc', BC[k]||'');
+      setTimeout(function(){
+        var svg=chip.querySelector('svg'),
+            from=svg.getBoundingClientRect(), to=logo.getBoundingClientRect();
+        chip.classList.remove('lit'); chip.classList.add('ghost');
+        fly(from,to,svg,function(){
+          cur=k;
+          logo.innerHTML=''; logo.appendChild(svg.cloneNode(true));
+          name.textContent=k;
+          spot.classList.add('dock');
+          var words=s[0].split(' ');
+          quote.innerHTML=words.map(function(w,j){
+            return '<span class="w" style="--d:'+(j*48)+'ms">'+w+'</span>' }).join(' ');
+          res.innerHTML='';
+          setTimeout(function(){
+            res.innerHTML='<span class="w2">'+TICK+'<span> '+s[1]+'</span></span>';
+          }, words.length*48+380);
+          /* stay docked, then fly home to wherever the chip has drifted */
+          setTimeout(function(){
+            spot.classList.remove('dock');
+            var back=chip.querySelector('svg').getBoundingClientRect();
+            fly(logo.getBoundingClientRect(), back, svg, function(){
+              chip.classList.remove('ghost'); busy=false;
+            });
+          }, 2450);
+        });
+      }, 320);
+    }
+    function pick(){
+      var k; do{ k=KEYS[(Math.random()*KEYS.length)|0] }while(k===cur);
+      dock(k);
+    }
+    [].forEach.call(document.querySelectorAll('.mq'),function(m){ m.innerHTML+=m.innerHTML });
+    belt.addEventListener('click',function(e){
+      var c=e.target.closest('.lchip'); if(!c||!c.getAttribute('data-k')) return;
+      if(reduce){ fill(c.getAttribute('data-k')); return }
+      if(busy) return;
+      clearTimeout(timer);
+      dock(c.getAttribute('data-k'), c);
+      timer=setTimeout(tick,6200);
+    });
+    fill('whatsapp'); lockSpot();
+    if(document.fonts&&document.fonts.ready) document.fonts.ready.then(lockSpot);
+    addEventListener('resize',function(){ clearTimeout(spot._r); spot._r=setTimeout(lockSpot,200) });
+    if(reduce) return;
+    function tick(){ pick(); timer=setTimeout(tick,4600) }
+    if('IntersectionObserver' in window){
+      new IntersectionObserver(function(items){ items.forEach(function(it){
+        if(it.isIntersecting){ clearTimeout(timer); timer=setTimeout(tick,900) }
+        else { clearTimeout(timer) } })
+      },{threshold:.25}).observe(spot);
+    } else { tick() }
   })();
 
   /* ---- the light switch: system → light → dark → system ---- */
