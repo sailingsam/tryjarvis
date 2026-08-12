@@ -535,7 +535,7 @@ h2{font-size:var(--t-h2);max-width:22ch}
 .lchip.lit{border-color:var(--bc,var(--amber));transform:translateY(-3px);
   box-shadow:0 0 0 5px color-mix(in oklab, var(--bc, #d99a2b) 22%, transparent)}
 .lchip.ghost{opacity:.25;transform:none;box-shadow:none;border-style:dashed}
-.flyer{position:fixed;z-index:60;pointer-events:none;display:grid;place-items:center;
+.flyer{position:absolute;z-index:60;pointer-events:none;display:grid;place-items:center;
   background:var(--bg);border:1px solid var(--hair);border-radius:12px;
   box-shadow:0 18px 44px -18px rgba(0,0,0,.3);will-change:transform;
   transition:transform .58s var(--ease)}
@@ -1511,7 +1511,8 @@ $ mantrin
     /* the flight: fixed-position clone from one rect to another */
     function fly(fromRect,toRect,svg,done){
       var f=document.createElement('span'); f.className='flyer';
-      f.style.left=fromRect.left+'px'; f.style.top=fromRect.top+'px';
+      /* document coordinates, not viewport — so the flyer scrolls with the page */
+      f.style.left=(fromRect.left+scrollX)+'px'; f.style.top=(fromRect.top+scrollY)+'px';
       f.style.width=fromRect.width+'px'; f.style.height=fromRect.height+'px';
       if(svg) f.appendChild(svg.cloneNode(true));
       document.body.appendChild(f);
