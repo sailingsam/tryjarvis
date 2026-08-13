@@ -32,7 +32,12 @@ def _system_blocks(system: str | list[str]) -> str | list[dict]:
         return system
     blocks = [{"type": "text", "text": part} for part in system]
     for block in blocks[:-1]:
-        block["cache_control"] = {"type": "ephemeral"}
+        # 1h TTL, not the default 5 minutes: an always-on assistant is used in
+        # bursts through a day. With 5m, every return after a pause re-reads
+        # the whole static prompt at full price and full latency; 1h keeps it
+        # warm across the gaps. Costs 2x to write instead of 1.25x — three
+        # turns inside the hour and it has paid for itself.
+        block["cache_control"] = {"type": "ephemeral", "ttl": "1h"}
     return blocks
 
 
@@ -54,6 +59,23 @@ def _mark_last_message(messages: list[dict]) -> list[dict]:
     else:
         return messages          # SDK blocks mid-loop — skip rather than fight them
     return messages[:-1] + [{**last, "content": content}]
+
+
+def _execute_calls(calls: list, executor) -> list[str]:
+    """Run one round's tool calls — concurrently when there are several.
+
+    When the model asks for WhatsApp and the calendar in the same breath,
+    running them one after another doubles the wait for no reason: each call
+    is network-bound, not CPU-bound. Anything needing the user's consent
+    still serializes — the brain's consent gate holds a lock, because two
+    confirmation questions spoken over each other answer neither.
+    """
+    if len(calls) <= 1:
+        return [executor(b.name, dict(b.input)) for b in calls]
+    from concurrent.futures import ThreadPoolExecutor
+
+    with ThreadPoolExecutor(max_workers=min(len(calls), 8)) as pool:
+        return list(pool.map(lambda b: executor(b.name, dict(b.input)), calls))
 
 
 class ClaudeLLM:
@@ -118,11 +140,10 @@ class ClaudeLLM:
                 return "".join(b.text for b in resp.content if b.type == "text")
 
             convo.append({"role": "assistant", "content": resp.content})
-            results = []
-            for block in resp.content:
-                if block.type == "tool_use":
-                    output = executor(block.name, dict(block.input))
-                    results.append(
-                        {"type": "tool_result", "tool_use_id": block.id, "content": output}
-                    )
+            calls = [b for b in resp.content if b.type == "tool_use"]
+            outputs = _execute_calls(calls, executor)
+            results = [
+                {"type": "tool_result", "tool_use_id": b.id, "content": out}
+                for b, out in zip(calls, outputs)
+            ]
             convo.append({"role": "user", "content": results})

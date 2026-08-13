@@ -211,6 +211,10 @@ class Brain:
         # kept beside the history (an extra key on the dicts would go to the
         # API), so an exchange archived days after it was said keeps its day.
         self._updates: queue.Queue = queue.Queue()
+        # Tool calls in one round may run in parallel (see llm._execute_calls),
+        # but consent is a conversation — one question at a time, or the user
+        # hears two confirmations talking over each other.
+        self._consent_lock = threading.Lock()
         self._memory_worker = threading.Thread(
             target=self._memory_loop, daemon=True, name="memory"
         )
@@ -384,23 +388,24 @@ class Brain:
                 print(f"  [tool] {name}({tool_input})", file=sys.stderr)
 
             if tool.needs_confirm and io is not None:
-                key = (name, json.dumps(tool_input, sort_keys=True, default=str))
-                question = question or tool.confirmation(**tool_input)
-                if key not in approved:
-                    # Consent already given in conversation counts — unless the
-                    # user has since declined this very call at the gate.
-                    if key not in denied and self._already_consented(question):
-                        approved.add(key)
-                    else:
-                        io.speak(question)
-                        verdict = self._consent(question, io.listen() or "")
-                        if verdict == "unclear":
-                            io.speak("Sorry — was that a yes or a no?")
+                with self._consent_lock:
+                    key = (name, json.dumps(tool_input, sort_keys=True, default=str))
+                    question = question or tool.confirmation(**tool_input)
+                    if key not in approved:
+                        # Consent already given in conversation counts — unless
+                        # the user has since declined this call at the gate.
+                        if key not in denied and self._already_consented(question):
+                            approved.add(key)
+                        else:
+                            io.speak(question)
                             verdict = self._consent(question, io.listen() or "")
-                        if verdict != "yes":
-                            denied.add(key)
-                            return "The user declined; the action was not performed."
-                        approved.add(key)
+                            if verdict == "unclear":
+                                io.speak("Sorry — was that a yes or a no?")
+                                verdict = self._consent(question, io.listen() or "")
+                            if verdict != "yes":
+                                denied.add(key)
+                                return "The user declined; the action was not performed."
+                            approved.add(key)
             return tool.execute(**tool_input)
         return executor
 

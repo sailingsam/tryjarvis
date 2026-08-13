@@ -306,6 +306,7 @@ class VoiceIO:
                 return text
 
             armed = gated and (_mic_paused() or time.monotonic() > self._listen_until)
+            session = None
 
             if armed:
                 got = self._await_wake()
@@ -314,6 +315,7 @@ class VoiceIO:
                 if got == "ptt":
                     continue            # the loop top picks up the held key
                 self._on_state("hearing")
+                session = self._open_session()
                 # Wait for the command rather than assuming it is already
                 # underway. People say the wake word both ways — "hey jarvis,
                 # remind me…" in one breath, and "hey jarvis" … pause …
@@ -323,7 +325,7 @@ class VoiceIO:
                 # speech had begun broke the pause case outright: it collected
                 # silence, transcribed nothing, and went back to sleep.
                 utterance = self._endpointer.collect_one(
-                    self._frames, onset_timeout_ms=_COMMAND_GRACE_MS,
+                    self._tapped(session), onset_timeout_ms=_COMMAND_GRACE_MS,
                     interrupt=self._key_waiting,
                 )
             elif gated:
@@ -335,8 +337,9 @@ class VoiceIO:
                 # The window would never close, because expiry is only checked
                 # between waits.
                 remaining_ms = max(1, int((self._listen_until - time.monotonic()) * 1000))
+                session = self._open_session()
                 utterance = self._endpointer.collect_one(
-                    self._frames, onset_timeout_ms=remaining_ms,
+                    self._tapped(session), onset_timeout_ms=remaining_ms,
                     interrupt=self._key_waiting,
                 )
             else:
@@ -345,12 +348,16 @@ class VoiceIO:
                 )
 
             if utterance is None:
+                if session is not None:
+                    session.abort()
                 return None
             if not utterance:
                 # Silence: after the wake word, or for the rest of the follow-up
                 # window. Re-arm rather than answering nothing — the next pass
                 # through the loop finds the window expired and waits for the
                 # wake word again.
+                if session is not None:
+                    session.abort()
                 self._gate.reset()
                 continue
             # What the recogniser is billed for starts at the onset; the wait
@@ -359,7 +366,7 @@ class VoiceIO:
             # so the total reads honestly.
             self.turn.mark("vad", self._endpointer.silence_ms)
 
-            text = self._transcribe(utterance)
+            text = self._finish_transcription(utterance, session)
             if text:
                 text = self._hear_the_rest(utterance, text)
                 print(f"you  > {text}")
@@ -367,6 +374,44 @@ class VoiceIO:
             # Nothing intelligible — go back to waiting rather than bothering the
             # brain with an empty turn.
             self._gate.reset()
+
+    def _open_session(self):
+        """A live streaming-STT session, when the provider has one. Audio goes
+        up the wire while the person is still talking, so recognition time
+        hides inside the speaking time instead of following it — the same
+        trick the talk key uses, now for wake-word turns too."""
+        maker = getattr(self._stt, "stream_session", None)
+        if maker is None:
+            return None
+        try:
+            return maker(audio.SAMPLE_RATE,
+                         hints=self._hints() if self._hints else None)
+        except Exception:                   # noqa: BLE001 — batch path remains
+            return None
+
+    def _tapped(self, session):
+        """The frame stream, with a copy of every frame sent up the session."""
+        if session is None:
+            return self._frames
+
+        def tap():
+            for frame in self._frames:
+                session.send(frame)
+                yield frame
+
+        return tap()
+
+    def _finish_transcription(self, utterance: bytes, session) -> str | None:
+        """The transcript — from the live session when there is one (only the
+        tail is left to wait for), else the plain upload. The full audio is
+        always in hand, so a dead socket costs a retry, never the words."""
+        if session is not None:
+            with self.turn.stage("stt"):
+                text = session.finish()
+            if text is not None:
+                self.transcribed_seconds += len(utterance) / (audio.SAMPLE_RATE * audio.SAMPLE_WIDTH)
+                return text
+        return self._transcribe(utterance)
 
     def _transcribe(self, pcm: bytes) -> str | None:
         # Running total of audio actually handed to the recogniser — with
@@ -418,14 +463,7 @@ class VoiceIO:
         audio is kept regardless: if the socket dies, plain transcribe()
         still has everything.
         """
-        session = None
-        maker = getattr(self._stt, "stream_session", None)
-        if maker is not None:
-            try:
-                session = maker(audio.SAMPLE_RATE,
-                                hints=self._hints() if self._hints else None)
-            except Exception:               # noqa: BLE001 — batch path remains
-                session = None
+        session = self._open_session()
         collected: list[bytes] = []
         while self._ptt.held:
             frame = next(self._frames, None)
@@ -482,14 +520,7 @@ class VoiceIO:
             if session is not None:
                 session.abort()
             return ""                   # an accidental tap, not speech
-        text = None
-        if session is not None:
-            # The audio is already up the wire; this only waits for the tail.
-            self.transcribed_seconds += len(utterance) / (audio.SAMPLE_RATE * audio.SAMPLE_WIDTH)
-            with self.turn.stage("stt"):
-                text = session.finish()
-        if text is None:
-            text = self._transcribe(utterance) or ""
+        text = self._finish_transcription(utterance, session) or ""
         if text:
             print(f"you  > {text}")
         return text

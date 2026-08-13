@@ -126,11 +126,14 @@ def _choose_wake_word(current: str) -> str:
         if answer.isdigit() and 1 <= int(answer) <= len(options):
             picked = options[int(answer) - 1]
             return "" if picked.startswith("off") else picked
-        resolved = wake.resolve(answer)     # typed a name — accept close matches
         if answer.lower() in ("none", "off"):
             return ""
-        if resolved:
-            return resolved
+        # Typed a name — or several, comma-separated ("mantrin, jarvis"):
+        # the gate answers to any of them.
+        parts = [p.strip() for p in answer.split(",") if p.strip()]
+        resolved = [wake.resolve(p) for p in parts]
+        if parts and all(resolved):
+            return ",".join(dict.fromkeys(resolved))    # dedupe, keep order
         print("  Not one of the options.")
 
 

@@ -58,7 +58,7 @@ class OpenWakeWord:
     # gathered up before inference instead of running the model 33 times a second.
     _WINDOW_SAMPLES = 1280
 
-    def __init__(self, phrase: str = "hey_jarvis", threshold: float = 0.5):
+    def __init__(self, phrases: "str | list[str]" = "hey_jarvis", threshold: float = 0.5):
         import warnings
 
         import openwakeword
@@ -74,14 +74,19 @@ class OpenWakeWord:
             "ignore", message=".*CUDAExecutionProvider.*", category=UserWarning
         )
 
+        if isinstance(phrases, str):
+            phrases = [phrases]
         available = available_models()
-        if phrase not in available:
+        missing = [p for p in phrases if p not in available]
+        if missing:
             raise ValueError(
-                f"no pretrained model for {phrase!r}. Available: "
+                f"no model for {', '.join(missing)}. Available: "
                 f"{', '.join(sorted(available))}"
             )
-        self._model = Model(wakeword_model_paths=[available[phrase]])
-        self._phrase = phrase
+        # Several phrases run in ONE model pass — answering to both "Mantrin"
+        # and "Jarvis" costs the same frame loop as answering to one.
+        self._model = Model(wakeword_model_paths=[available[p] for p in phrases])
+        self._phrase = " / ".join(phrases)
         self._threshold = threshold
         self._pending: bytearray = bytearray()
 
@@ -106,14 +111,32 @@ class OpenWakeWord:
             reset()
 
 
+def custom_model_dir():
+    """Where user-trained wake models live: drop a `mantrin.onnx` here and
+    'mantrin' becomes a phrase Mantrin answers to. See docs/custom-wake-word.md
+    for training one (about an hour, free, in a browser)."""
+    from pathlib import Path
+
+    from . import config
+
+    return Path(config.CONFIG_DIR) / "wake"
+
+
 def available_models() -> dict[str, str]:
-    """Pretrained phrase -> model path. Raises ImportError without openwakeword."""
+    """Phrase -> model path: openwakeword's pretrained set, plus anything the
+    user dropped into the custom dir. Raises ImportError without openwakeword.
+    A custom model wins a name collision — training your own 'hey_jarvis'
+    should mean it gets used."""
     import openwakeword
 
     models = {}
     for path in openwakeword.get_pretrained_model_paths():
         name = path.rsplit("/", 1)[-1].rsplit("_v", 1)[0]
         models[name] = path
+    custom = custom_model_dir()
+    if custom.is_dir():
+        for path in sorted(custom.glob("*.onnx")) + sorted(custom.glob("*.tflite")):
+            models[path.stem.lower().replace(" ", "_")] = str(path)
     return models
 
 
@@ -150,6 +173,10 @@ DEFAULT_PHRASE = "hey_jarvis"
 def build(phrase: str) -> WakeGate:
     """A gate for this phrase — empty string means deliberately no gate.
 
+    Several phrases may be given comma-separated ("mantrin, jarvis") and the
+    gate answers to any of them — how a rename ships without breaking the
+    habit of the old name.
+
     An unknown phrase falls back to the *default gate*, never to an open door:
     with hosted ears, an open microphone ships everything said near the machine
     to a transcription service, on the user's bill. Degrading to a different
@@ -158,19 +185,26 @@ def build(phrase: str) -> WakeGate:
     if not phrase:
         return Always()
     try:
-        resolved = resolve(phrase)
-        if resolved is None:
-            print(
-                f"(no wake-word model for '{phrase}' — using "
-                f"'{DEFAULT_PHRASE.replace('_', ' ')}' instead. Available: "
-                f"{', '.join(available_phrases())}. A custom phrase needs a "
-                f"trained model; run `mantrin setup` to pick one.)",
-                flush=True,
-            )
-            resolved = DEFAULT_PHRASE
-        elif resolved != phrase:
-            print(f"(wake word '{phrase}' -> using the '{resolved.replace('_', ' ')}' model)",
+        wanted = [p for p in (part.strip() for part in phrase.split(",")) if p]
+        resolved: list[str] = []
+        for p in wanted:
+            r = resolve(p)
+            if r is None:
+                print(
+                    f"(no wake-word model for '{p}' — available: "
+                    f"{', '.join(available_phrases())}. A custom phrase needs a "
+                    f"trained model; see docs/custom-wake-word.md)",
+                    flush=True,
+                )
+            elif r not in resolved:
+                if r != p:
+                    print(f"(wake word '{p}' -> using the '{r.replace('_', ' ')}' model)",
+                          flush=True)
+                resolved.append(r)
+        if not resolved:
+            print(f"(none of '{phrase}' resolved — using '{DEFAULT_PHRASE.replace('_', ' ')}')",
                   flush=True)
+            resolved = [DEFAULT_PHRASE]
         return OpenWakeWord(resolved)
     except ImportError:
         print(
