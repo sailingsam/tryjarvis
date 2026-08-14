@@ -239,22 +239,60 @@ class MCPTool(Tool):
         return f"Should I {action}? {details}. Yes or no?"
 
 
-# Verbs that imply a tool changes the world → confirm before running.
-_MUTATION_VERBS = (
-    "send", "post", "create", "delete", "remove", "update", "reply", "write",
-    "add", "set", "mark", "revoke", "edit", "archive", "mute", "block", "leave",
+# Outward or consequential actions must be explicitly approved. A tool name is
+# only a fallback — good MCP servers also declare their intent in annotations —
+# but it keeps the human-in-control promise intact for the many servers that
+# publish no annotations at all.
+_CRITICAL_ACTION_TERMS = (
+    "send", "email", "message", "post", "reply",
+    "pay", "transfer", "purchase", "order",
+    "delete", "remove", "cancel", "book", "schedule",
+    "invite", "share", "grant", "revoke", "password",
+    "create", "update", "write", "add", "set", "mark", "edit",
+    "archive", "mute", "block", "leave",
+)
+
+# Everyday controls are reversible and expected to be immediate: asking before
+# pausing music or turning off a light makes the assistant feel less useful,
+# not more safe. Keep this deliberately narrow; new integrations should use
+# MCP annotations instead of casually expanding it.
+_HARMLESS_ACTION_TERMS = (
+    "play", "pause", "skip", "volume",
+    "turn_on", "turn_off", "toggle", "dim",
+    "search", "read", "list", "get", "status",
 )
 
 
 def _infer_confirm(meta) -> bool:
-    """Decide if a tool needs confirmation. Honour the server's readOnlyHint if
-    present; otherwise guess from the tool name — mutation verbs → confirm,
-    everything else (list/get/search/read) runs freely."""
+    """Whether an external action needs the user's approval.
+
+    Read-only MCP metadata always runs freely. Critical names still override a
+    server that incorrectly labels an outward action non-destructive; harmless
+    local controls remain immediate. Everything unknown is confirmed — a new
+    third-party tool must earn the right to act silently, not the reverse.
+    """
     ann = getattr(meta, "annotations", None)
-    if ann is not None and getattr(ann, "readOnlyHint", None) is not None:
-        return not bool(ann.readOnlyHint)
-    name = (getattr(meta, "name", "") or "").lower()
-    return any(v in name for v in _MUTATION_VERBS)
+    raw_name = getattr(meta, "name", "") or ""
+    # Match action *words*, not arbitrary substrings: ``forget_note`` must not
+    # become harmless merely because it happens to contain ``get``.
+    name = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", raw_name).lower()
+    name = re.sub(r"[^a-z0-9]+", "_", name).strip("_")
+
+    def has_term(term: str) -> bool:
+        return f"_{term}_" in f"_{name}_"
+
+    read_only = getattr(ann, "readOnlyHint", None) if ann is not None else None
+    destructive = getattr(ann, "destructiveHint", None) if ann is not None else None
+
+    if read_only is True:
+        return False
+    if any(has_term(term) for term in _CRITICAL_ACTION_TERMS):
+        return True
+    if destructive is True:
+        return True
+    if any(has_term(term) for term in _HARMLESS_ACTION_TERMS):
+        return False
+    return True
 
 
 def connect(name: str, command: str | None = None, args: list[str] | None = None,
