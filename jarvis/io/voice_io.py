@@ -236,6 +236,7 @@ class VoiceIO:
         on_state: Callable[[str], None] | None = None,
         ptt=None,
         trigger: str = "wake",
+        prompts: Callable[[], str | None] | None = None,
     ):
         self._stt = stt
         self._tts = tts
@@ -263,6 +264,13 @@ class VoiceIO:
         seed = audio.calibrate_noise_floor(self._frames)
         self._endpointer = audio.Endpointer(min_peak=seed)
         self._listen_until = 0.0        # follow-up window; past = gate is armed
+        # Proactivity's doorway: a callable that hands back something Jarvis
+        # should say of its own accord (a due reminder), or None. It is only
+        # consulted while WAITING — between turns, never during one — so a
+        # reminder can never barge into a conversation already underway.
+        self._prompts = prompts
+        self._pending_prompt: str | None = None
+        self._next_prompt_check = 0.0
         self._active_speaker: _StreamSpeaker | None = None
         self.transcribed_seconds = 0.0  # audio actually sent for transcription
         self.turn = timings.Turn(enabled=show_timings)
@@ -277,6 +285,28 @@ class VoiceIO:
                 detail += " or hold the talk key"
         print(f"(listening — noise floor {seed}{detail})", flush=True)
 
+    # ------------------------------------------------------------- proactive
+
+    def _prompt_ready(self) -> bool:
+        """Is something waiting to be said unprompted? Throttled to one store
+        check every couple of seconds — the wait loops that call this spin far
+        faster than reminders come due. A hard-muted mic means do-not-disturb:
+        the user silenced Jarvis's presence, so speaking first waits too."""
+        if self._pending_prompt is not None:
+            return True
+        if self._prompts is None or _mic_paused():
+            return False
+        now = time.monotonic()
+        if now < self._next_prompt_check:
+            return False
+        self._next_prompt_check = now + 2.0
+        self._pending_prompt = self._prompts()
+        return self._pending_prompt is not None
+
+    def _take_prompt(self) -> str:
+        text, self._pending_prompt = self._pending_prompt, None
+        return text
+
     # ------------------------------------------------------------------ in
 
     def listen(self) -> str | None:
@@ -284,6 +314,12 @@ class VoiceIO:
         gated = getattr(self._gate, "is_gate", False)
         while True:
             self.turn = timings.Turn(enabled=self._show_timings)
+            # Speaking first: a due reminder is delivered from here — between
+            # turns — so it rides the exact same path as an answer (streamed
+            # speech, barge-in, the follow-up window for "haan, done" after).
+            if self._prompt_ready():
+                print("(reminder due — speaking up)", flush=True)
+                return self._take_prompt()
             # A pause (the tray's hard mute) collapses the follow-up window
             # too: pressing it mid-conversation must take effect now, not
             # after the window happens to expire.
@@ -312,8 +348,9 @@ class VoiceIO:
                 got = self._await_wake()
                 if not got:
                     return None
-                if got == "ptt":
+                if got != "wake":
                     continue            # the loop top picks up the held key
+                                        # or the pending reminder
                 self._on_state("hearing")
                 session = self._open_session()
                 # Wait for the command rather than assuming it is already
@@ -343,8 +380,12 @@ class VoiceIO:
                     interrupt=self._key_waiting,
                 )
             else:
+                # No wake gate: this wait is open-ended, so a due reminder has
+                # to be able to end it — pre-onset only; once the user is
+                # speaking, collect_one stops consulting the interrupt.
                 utterance = self._endpointer.collect_one(
-                    self._frames, interrupt=self._key_waiting
+                    self._frames,
+                    interrupt=lambda: self._key_waiting() or self._prompt_ready(),
                 )
 
             if utterance is None:
@@ -500,6 +541,11 @@ class VoiceIO:
         self._on_state("paused" if paused else "ready")
         while not self._ptt.held or _mic_paused():
             time.sleep(0.03)
+            # A reminder coming due ends this wait like an empty press would:
+            # the caller loops, and the top of listen() delivers it. Speaking
+            # needs no microphone, so the stream stays suspended throughout.
+            if self._prompt_ready():
+                return ""
             # The mic is already released either way, but the icon must tell
             # the truth about WHY: muted means even the key is ignored.
             if _mic_paused() != paused:
@@ -526,8 +572,9 @@ class VoiceIO:
         return text
 
     def _await_wake(self) -> str | None:
-        """Consume frames until the wake word fires ("wake") or the talk key
-        goes down ("ptt"). None if the mic died.
+        """Consume frames until the wake word fires ("wake"), the talk key
+        goes down ("ptt"), or something falls due to say unprompted
+        ("prompt"). None if the mic died.
 
         The pause flag (the tray's hard mute) releases the microphone DEVICE,
         not just the gate: the recorder process exits and the OS's mic-in-use
@@ -559,11 +606,14 @@ class VoiceIO:
             # moment the wake word fires.
             self._endpointer.observe(frame)
             frames_seen += 1
-            if frames_seen % 32 == 0 and _mic_paused():   # ~once a second
-                paused = True
-                self._stream.suspend()
-                self._on_state("paused")
-                continue
+            if frames_seen % 32 == 0:                     # ~once a second
+                if _mic_paused():
+                    paused = True
+                    self._stream.suspend()
+                    self._on_state("paused")
+                    continue
+                if self._prompt_ready():
+                    return "prompt"     # listen() loops and delivers it
             if self._gate.open(frame):
                 self._gate.reset()
                 return "wake"

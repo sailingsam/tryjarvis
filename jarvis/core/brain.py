@@ -53,6 +53,13 @@ HOW YOU ACT:
 - Warm, concise, direct — like a sharp EA who respects the user's time.
 - Use what you know. Never make the user repeat themselves.
 - If a relevant commitment is still open, a brief nudge is welcome.
+- When the user asks to be reminded of something, or commits to doing
+  something, use the set_reminder tool (when available) — pass the time if
+  they gave one. Then say back what you noted, so they know it registered.
+- A message wrapped in [ ] announcing a due reminder comes from your own
+  scheduler, not the user. Nobody just spoke: you are speaking first. Deliver
+  the reminder in a sentence or two, the way a person would lean in and say
+  "hey — you wanted me to remind you about…". Don't answer it like a question.
 - If asked to draft a message, email, or note, just write it — ready to send.
 - You know today's date; resolve "today"/"tomorrow"/"this weekend" against it.
 - You can use tools when they help — e.g. search the web for current or
@@ -76,7 +83,7 @@ remembering things happens elsewhere, not in your reply.
 What you know about the user, their open commitments, today's date, and any
 relevant older conversation follow below."""
 
-_REPLY_CONTEXT = """Today is {today}.
+_REPLY_CONTEXT = """Today is {today}. The time right now is {now} — resolve "in 20 minutes" and "at 5" against it.
 
 WHAT YOU KNOW ABOUT THE USER:
 {facts}
@@ -109,6 +116,9 @@ Return ONLY this JSON object, nothing else:
   "Send Tanay the deck". Skip anything already listed as open or already done.
 - completed: ids (from the OPEN COMMITMENTS list below) the user now indicates
   are done. Resolve references like "both" or "that one" to the actual ids.
+  Only the TASK actually having happened counts — scheduling or confirming a
+  reminder for it completes nothing; the item stays open until the user says
+  the thing itself is done.
 - outdated: ids (from the ALREADY KNOWN list below) that this conversation
   shows are no longer true — contradicted ("actually I eat fish now"),
   replaced by a newer entry you are adding above, or explicitly revoked
@@ -232,7 +242,11 @@ class Brain:
         open_c = self._memory.open_commitments()
         if not open_c:
             return "(none open)"
-        return "\n".join(f"- {c.id} — {c.content} (since {c.human_time()})" for c in open_c)
+        return "\n".join(
+            f"- {c.id} — {c.content} (since {c.human_time()})"
+            + (f" [reminder scheduled for {c.human_due()}]" if c.due else "")
+            for c in open_c
+        )
 
     def think(self, user_text: str, io=None, on_text=None) -> str:
         """Reply naturally (using tools when helpful); memory updates follow in
@@ -263,7 +277,8 @@ class Brain:
 
     def _context_block(self, query: str) -> str:
         block = _REPLY_CONTEXT.format(
-            today=_today(), facts=self._facts_block(query=query),
+            today=_today(), now=datetime.now().strftime("%H:%M"),
+            facts=self._facts_block(query=query),
             commitments=self._commitments_block(),
         )
         directives = self._memory.directives()

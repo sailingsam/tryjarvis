@@ -23,6 +23,7 @@ from .core.memory import MemoryStore
 from .providers.embeddings import LocalEmbedder
 from .providers.llm import ClaudeLLM
 from .tools.base import Registry
+from .tools.reminders import SetReminder
 from .tools.web_search import WebSearch
 
 
@@ -38,7 +39,7 @@ def _run_conversation(dictation: bool = False) -> None:
     # query-driven recall. The read-only commands don't load it (faster startup).
     memory = MemoryStore(config.DB_FILE, embedder=LocalEmbedder())
 
-    tools = [WebSearch(), *_daemon()._x_tools()]
+    tools = [WebSearch(), SetReminder(memory), *_daemon()._x_tools()]
     mcp_clients = _connect_mcp(tools)   # extends `tools` with any configured servers
 
     brain = Brain(

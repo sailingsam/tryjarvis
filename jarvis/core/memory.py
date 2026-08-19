@@ -76,10 +76,17 @@ class Commitment:
     created_at: float
     status: str = "open"
     resolved_at: float | None = None
+    # When Jarvis promised to speak up about this, if a time was given at all.
+    # `notified` records that the promise was kept — spoken once, not nagged.
+    due: float | None = None
+    notified: float | None = None
     id: str = field(default_factory=_new_id)
 
     def human_time(self) -> str:
         return _human(self.created_at)
+
+    def human_due(self) -> str:
+        return _human(self.due) if self.due else ""
 
 
 @dataclass
@@ -114,7 +121,9 @@ CREATE TABLE IF NOT EXISTS commitments (
     source      TEXT NOT NULL,
     created_at  REAL NOT NULL,
     status      TEXT NOT NULL DEFAULT 'open',
-    resolved_at REAL
+    resolved_at REAL,
+    due         REAL,
+    notified    REAL
 );
 CREATE VIRTUAL TABLE IF NOT EXISTS facts_fts USING fts5(id UNINDEXED, content);
 CREATE TABLE IF NOT EXISTS exchanges (
@@ -162,6 +171,11 @@ class MemoryStore:
             self._conn.execute("ALTER TABLE facts ADD COLUMN status TEXT NOT NULL DEFAULT 'active'")
         if "superseded_at" not in cols:
             self._conn.execute("ALTER TABLE facts ADD COLUMN superseded_at REAL")
+        ccols = {r["name"] for r in self._conn.execute("PRAGMA table_info(commitments)")}
+        if "due" not in ccols:
+            self._conn.execute("ALTER TABLE commitments ADD COLUMN due REAL")
+        if "notified" not in ccols:
+            self._conn.execute("ALTER TABLE commitments ADD COLUMN notified REAL")
 
     # --- facts & directives ---------------------------------------------
     def add(self, content: str, source: str, kind: str = "fact") -> Memory:
@@ -321,13 +335,14 @@ class MemoryStore:
             return [i for i, _ in scored[:_CANDIDATES]]
 
     # --- commitments ---------------------------------------------------
-    def add_commitment(self, content: str, source: str) -> Commitment:
-        c = Commitment(content=content.strip(), source=source.strip(), created_at=time.time())
+    def add_commitment(self, content: str, source: str, due: float | None = None) -> Commitment:
+        c = Commitment(content=content.strip(), source=source.strip(),
+                       created_at=time.time(), due=due)
         with self._lock:
             self._conn.execute(
-                "INSERT INTO commitments (id, content, source, created_at, status, resolved_at) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
-                (c.id, c.content, c.source, c.created_at, c.status, c.resolved_at),
+                "INSERT INTO commitments (id, content, source, created_at, status, resolved_at, due) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (c.id, c.content, c.source, c.created_at, c.status, c.resolved_at, c.due),
             )
             self._conn.commit()
         return c
@@ -338,19 +353,42 @@ class MemoryStore:
     def all_commitments(self) -> list[Commitment]:
         return self._commitments("")
 
+    def due_commitments(self, now: float | None = None) -> list[Commitment]:
+        """Open items whose promised time has arrived and that have not been
+        spoken about yet — what the scheduler should announce right now.
+        Unspoken they stay 'due' forever (a daemon restart doesn't lose them);
+        once announced they are only nudged, never re-announced."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT id, content, source, created_at, status, resolved_at, due, notified "
+                "FROM commitments WHERE status = 'open' AND notified IS NULL "
+                "AND due IS NOT NULL AND due <= ? ORDER BY due",
+                (now if now is not None else time.time(),),
+            ).fetchall()
+        return [self._row_to_commitment(r) for r in rows]
+
+    def mark_notified(self, cid: str) -> None:
+        with self._lock:
+            self._conn.execute(
+                "UPDATE commitments SET notified = ? WHERE id = ?", (time.time(), cid)
+            )
+            self._conn.commit()
+
     def _commitments(self, where: str) -> list[Commitment]:
         with self._lock:
             rows = self._conn.execute(
-                f"SELECT id, content, source, created_at, status, resolved_at "
+                f"SELECT id, content, source, created_at, status, resolved_at, due, notified "
                 f"FROM commitments {where} ORDER BY created_at"
             ).fetchall()
-        return [
-            Commitment(
-                id=r["id"], content=r["content"], source=r["source"],
-                created_at=r["created_at"], status=r["status"], resolved_at=r["resolved_at"],
-            )
-            for r in rows
-        ]
+        return [self._row_to_commitment(r) for r in rows]
+
+    @staticmethod
+    def _row_to_commitment(r: sqlite3.Row) -> Commitment:
+        return Commitment(
+            id=r["id"], content=r["content"], source=r["source"],
+            created_at=r["created_at"], status=r["status"], resolved_at=r["resolved_at"],
+            due=r["due"], notified=r["notified"],
+        )
 
     def complete_commitment(self, cid: str) -> bool:
         with self._lock:

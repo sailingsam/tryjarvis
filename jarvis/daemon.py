@@ -40,6 +40,7 @@ from .io.remote_io import RemoteIO
 from .providers.embeddings import LocalEmbedder
 from .providers.llm import ClaudeLLM
 from .tools.base import Registry
+from .tools.reminders import SetReminder
 from .tools.web_search import WebSearch
 
 
@@ -219,6 +220,7 @@ def _voice_loop(turns: _Turns, memory) -> None:
         on_state=publish_state,
         ptt=ptt,
         trigger=trigger,
+        prompts=lambda: _due_reminders(memory),
     )
     try:
         while True:
@@ -252,6 +254,28 @@ def audio_probe() -> str | None:
     from . import audio
 
     return audio.probe()
+
+
+def _due_reminders(memory) -> str | None:
+    """The scheduler's whole brain: anything promised for a time that has now
+    arrived, folded into one message for the reply model. It runs through the
+    normal think() path — same voice, same history, same follow-up window —
+    so "you wanted me to remind you about the electrician" and the user's
+    "haan, done" after it are just another exchange the memory understands.
+
+    Marked notified up front: announced or not (the speaker could die
+    mid-sentence), the item stays an OPEN commitment, so the worst failure
+    downgrades a spoken reminder into next conversation's nudge — it is
+    never repeated as a fresh announcement and never lost.
+    """
+    due = memory.due_commitments()
+    if not due:
+        return None
+    for c in due:
+        memory.mark_notified(c.id)
+    items = "; ".join(f'"{c.content}" (set for {c.human_due()})' for c in due)
+    return (f"[From your scheduler, not the user — now due: {items}. "
+            f"Speak up and remind them, brief and natural.]")
 
 
 def _name_hints(memory, limit: int = 60) -> str | None:
@@ -298,7 +322,7 @@ def run() -> int:
     print("Jarvis daemon starting — loading brain + connections…", flush=True)
     publish_state("starting", "loading brain + connections")
     memory = MemoryStore(config.DB_FILE, embedder=LocalEmbedder())
-    tools = [WebSearch(), *_x_tools()]
+    tools = [WebSearch(), SetReminder(memory), *_x_tools()]
     mcp_clients = _connect_mcp(tools)   # WhatsApp etc. now stay connected here
     brain = Brain(
         llm=ClaudeLLM(model=config.LLM_MODEL),
