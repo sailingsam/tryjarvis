@@ -52,6 +52,10 @@ mantrin = "jarvis.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["jarvis*"]
+exclude = ["jarvis.assets*"]
 
 [tool.setuptools.package-data]
-jarvis = ["assets/tray/*.png", "assets/*.conf", "assets/*.json"]
+jarvis = ["assets/tray/*.png", "assets/mascot/*.png", "assets/*.conf", "assets/*.json"]
+
+[tool.setuptools.exclude-package-data]
+jarvis = ["assets/mascot/*.py"]

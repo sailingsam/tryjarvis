@@ -256,7 +256,12 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("stop", parents=[flags], help="stop the running Mantrin")
     sub.add_parser("restart", parents=[flags], help="restart Mantrin (picks up new code)")
     sub.add_parser("status", parents=[flags], help="is Mantrin running, and what does it know")
-    sub.add_parser("logs", parents=[flags], help="follow what Mantrin is doing")
+    logs_p = sub.add_parser("logs", parents=[flags],
+                            help="follow what Mantrin is doing, readably")
+    logs_p.add_argument("--chat", action="store_true",
+                        help="only the conversation — no system lines")
+    logs_p.add_argument("--raw", action="store_true",
+                        help="the untouched journalctl view")
     sub.add_parser("tray", parents=[flags], help="show the status icon in the top bar")
     sub.add_parser("set-key", parents=[flags],
                    help="choose a push-to-talk key: hold it to talk, release to get the answer")
@@ -317,7 +322,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "connect":
         from .connect import connect
         return connect(args.integration)
-    if args.cmd in ("install", "uninstall", "start", "stop", "restart", "status", "logs"):
+    if args.cmd == "logs":
+        from . import logs
+        return logs.run(chat=args.chat, raw=args.raw)
+    if args.cmd in ("install", "uninstall", "start", "stop", "restart", "status"):
         from . import service
         return getattr(service, args.cmd)()
 

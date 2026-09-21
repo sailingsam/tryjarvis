@@ -38,9 +38,11 @@ from pathlib import Path
 
 try:
     from . import config
+    from . import mascot as _mascot
 except ImportError:                     # running as a plain script (system python)
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     from jarvis import config
+    from jarvis import mascot as _mascot
 
 _ASSETS = Path(__file__).resolve().parent / "assets" / "tray"
 PID_FILE = config.DATA_DIR / "tray.pid"
@@ -100,10 +102,10 @@ def _trigger() -> str:
     return settings.get("trigger") or "both"
 
 
-def current_status() -> tuple[str, str]:
-    """(icon, human text) — the file says what the daemon last felt, the
-    socket says whether it is still alive to feel anything. A 'ready' from a
-    process that stopped answering is a crash, not a status."""
+def current_status() -> tuple[str, str, str]:
+    """(icon, human text, state) — the file says what the daemon last felt,
+    the socket says whether it is still alive to feel anything. A 'ready'
+    from a process that stopped answering is a crash, not a status."""
     state, detail = _read_state()
     # The daemon says "paused" only once the recorder process is actually gone
     # and the OS mic light is out. Until then the honest icon is the live one —
@@ -130,7 +132,7 @@ def current_status() -> tuple[str, str]:
             text = "Listening — wake word, or hold your talk key"
     if detail:
         text = f"{text} — {detail}"
-    return icon, text
+    return icon, text, state
 
 
 def _mantrin(*args: str) -> None:
@@ -138,6 +140,16 @@ def _mantrin(*args: str) -> None:
     exe = shutil.which("mantrin") or str(Path.home() / ".local" / "bin" / "mantrin")
     subprocess.Popen([exe, *args], stdout=subprocess.DEVNULL,
                      stderr=subprocess.DEVNULL, start_new_session=True)
+
+
+def alive() -> bool:
+    """Is the mascot on screen right now? The brain asks before deciding
+    whether a confirmation can go to the card instead of being read aloud in
+    full — so it must be false both when no tray runs and when the user has
+    switched the mascot off."""
+    return (_already_running()
+            and bool(config.load_settings().get("mascot", True))
+            and config.MASCOT_ALIVE_FILE.exists())
 
 
 def _already_running() -> bool:
@@ -154,6 +166,14 @@ def _already_running() -> bool:
 
 
 def main() -> int:
+    # The mascot floats above everything via an override-redirect window — an
+    # X11 concept. On Wayland that means running on XWayland, chosen before
+    # GTK first opens a display — and chosen firmly, because sessions often
+    # export GDK_BACKEND=wayland for every app. Forcing it is safe here: this
+    # process owns no UI besides the mascot (the indicator lives on DBus, not
+    # on a window), and on an X11 session the setting is a no-op anyway.
+    if os.environ.get("DISPLAY"):
+        os.environ["GDK_BACKEND"] = "x11"
     try:
         import gi
     except ImportError:
@@ -177,6 +197,9 @@ def main() -> int:
     if _already_running():
         return 0
     config.DATA_DIR.mkdir(parents=True, exist_ok=True)
+    # A killed previous tray may have left this behind. It becomes true again
+    # only after this process has actually created a mascot window.
+    config.MASCOT_ALIVE_FILE.unlink(missing_ok=True)
     PID_FILE.write_text(str(os.getpid()))
 
     indicator = AppIndicator.Indicator.new(
@@ -207,6 +230,21 @@ def main() -> int:
         refresh()
     pause_item.connect("toggled", on_pause)
     menu.append(pause_item)
+
+    mascot_item = Gtk.CheckMenuItem(label="Show the mascot")
+    updating["mascot"] = True
+    mascot_item.set_active(bool(config.load_settings().get("mascot", True)))
+    updating["mascot"] = False
+
+    def on_mascot(item) -> None:
+        if updating["mascot"]:
+            return
+        settings = config.load_settings()
+        settings["mascot"] = item.get_active()
+        config.save_settings(settings)
+        sync_mascot()
+    mascot_item.connect("toggled", on_mascot)
+    menu.append(mascot_item)
 
     # How Mantrin is summoned — only shown once a talk key exists to offer.
     # Changing it rewrites the setting and restarts the daemon; the tray
@@ -271,14 +309,61 @@ def main() -> int:
     menu.show_all()
     indicator.set_menu(menu)
 
+    # The mascot — created lazily so a session without X11 (no XWayland, no
+    # override-redirect trick) degrades to just the indicator, silently.
+    mascot = {"m": None}
+
+    def _toggle_mute() -> None:
+        if config.MIC_PAUSE_FILE.exists():
+            config.MIC_PAUSE_FILE.unlink(missing_ok=True)
+        else:
+            config.MIC_PAUSE_FILE.touch()
+        refresh()
+
+    def _save_spot(x: int, y: int) -> None:
+        settings = config.load_settings()
+        settings["mascot_xy"] = [x, y]
+        config.save_settings(settings)
+
+    def sync_mascot() -> None:
+        want = bool(config.load_settings().get("mascot", True))
+        if want and mascot["m"] is None and os.environ.get("DISPLAY"):
+            saved = config.load_settings().get("mascot_xy")
+            try:
+                mascot["m"] = _mascot.Mascot(
+                    on_click=_toggle_mute, on_move=_save_spot,
+                    pos=tuple(saved) if saved else None)
+                config.MASCOT_ALIVE_FILE.touch()
+            except Exception:
+                mascot["m"] = None
+                config.MASCOT_ALIVE_FILE.unlink(missing_ok=True)
+        elif not want and mascot["m"] is not None:
+            mascot["m"].destroy()
+            mascot["m"] = None
+            config.MASCOT_ALIVE_FILE.unlink(missing_ok=True)
+
+    def _card_text() -> str | None:
+        try:
+            data = json.loads(config.CARD_FILE.read_text())
+            # A consent question nobody answered for minutes is a crashed
+            # brain, not a pending decision — don't haunt the screen with it.
+            if time.time() - float(data.get("ts", 0)) > 180:
+                return None
+            return str(data["text"])
+        except (OSError, ValueError, TypeError, KeyError, AttributeError):
+            return None
+
     last = {"icon": ""}
 
     def refresh() -> bool:
-        icon, text = current_status()
+        icon, text, state = current_status()
         if icon != last["icon"]:
             last["icon"] = icon
             indicator.set_icon_full(f"mantrin-{icon}", text)
         status_item.set_label(text)
+        if mascot["m"] is not None:
+            mascot["m"].set_state(state)
+            mascot["m"].set_card(_card_text())
         # Alive (answering, or still starting up) → offer Stop; actually down
         # → offer Start. Judged by the socket, not the icon: a paused daemon
         # is grey but very much running. Restart and Pause only mean
@@ -293,11 +378,13 @@ def main() -> int:
         updating["pause"] = False
         return True                     # keep the GLib timer alive
 
+    sync_mascot()
     refresh()
     GLib.timeout_add(1000, refresh)
     try:
         Gtk.main()
     finally:
+        config.MASCOT_ALIVE_FILE.unlink(missing_ok=True)
         PID_FILE.unlink(missing_ok=True)
     return 0
 

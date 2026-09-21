@@ -90,6 +90,14 @@ SOCKET_FILE = DATA_DIR / "jarvis.sock"
 # and the flag the tray drops to hard-mute the microphone.
 STATE_FILE = DATA_DIR / "state.json"
 MIC_PAUSE_FILE = DATA_DIR / "mic-paused"
+# A confirmation waiting on screen: the brain writes the full question here so
+# the mascot can show it as a card, and the voice only says "check the card"
+# instead of reading a whole draft aloud. Removed the moment the user rules.
+CARD_FILE = DATA_DIR / "card.json"
+# Written only while the tray has successfully created the mascot window. The
+# daemon checks this before shortening a spoken confirmation; a running tray
+# alone is not proof that XWayland/GTK managed to put the card on screen.
+MASCOT_ALIVE_FILE = DATA_DIR / "mascot-alive"
 
 # Reasoning model — used for the conversational reply.
 LLM_MODEL = os.environ.get("JARVIS_MODEL", "claude-sonnet-5")
@@ -110,6 +118,10 @@ MCP_CONFIG_FILE = DATA_DIR / "mcp.json"
 # on a machine that has never been configured.
 STT_PROVIDER = os.environ.get("MANTRIN_STT") or SETTINGS.get("stt") or "whisper-local"
 TTS_PROVIDER = os.environ.get("MANTRIN_TTS") or SETTINGS.get("tts") or "piper-local"
+
+# Who Mantrin greets when it comes up. Purely cosmetic — but "Hello Saksham"
+# lands very differently from a service starting silently.
+USER_NAME = (os.environ.get("MANTRIN_USER_NAME") or SETTINGS.get("user_name") or "").strip()
 
 # Wake word. Always-on means the microphone is live all day, and without a gate
 # every word spoken near the laptop would be shipped to a transcription service.
@@ -184,6 +196,7 @@ def load_mcp_servers() -> list[dict]:
         return []
     data = json.loads(MCP_CONFIG_FILE.read_text() or "{}")
     servers = []
+    waiting: list[str] = []
     for server in data.get("servers", []):
         # Expand ${VAR} in env and header values so secrets (tokens) can live
         # in the environment instead of on disk in mcp.json. A ${VAR} that
@@ -200,8 +213,14 @@ def load_mcp_servers() -> list[dict]:
             missing += [m for v in expanded.values() for m in re.findall(r"\$\{(\w+)\}", v)]
             server[field] = expanded
         if missing:
-            print(f"(MCP '{server.get('name', '?')}' off — set "
-                  f"{', '.join(sorted(set(missing)))} to enable)", flush=True)
+            # Folded into ONE line below: five separate "off" lines every
+            # start read as five problems, when the truth is one quiet fact —
+            # these are configured ahead of their keys, waiting.
+            waiting.append(f"'{server.get('name', '?')}' needs "
+                           f"{', '.join(sorted(set(missing)))}")
             continue
         servers.append(server)
+    if waiting:
+        print(f"(MCP off — set the key or run mantrin connect: "
+              f"{'; '.join(waiting)})", flush=True)
     return servers

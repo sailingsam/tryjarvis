@@ -102,8 +102,20 @@ def _connect_mcp(tools: list) -> list:
             tools.extend(mcp_tools)
             print(f"(MCP '{name}': {len(mcp_tools)} tools)", flush=True)
         except Exception as e:
-            print(f"(MCP '{name}' failed to start: {e})", flush=True)
+            print(f"(MCP '{name}' failed to start: {_root_error(e)})", flush=True)
     return clients
+
+
+def _root_error(e: BaseException) -> str:
+    """The failure a person can act on. Async servers die wrapped in
+    ExceptionGroups, and "unhandled errors in a TaskGroup (1 sub-exception)"
+    names the wrapping instead of the problem — drill to the leaf."""
+    depth = 0
+    while getattr(e, "exceptions", None) and depth < 10:
+        e = e.exceptions[0]
+        depth += 1
+    detail = str(e).strip() or type(e).__name__
+    return f"{type(e).__name__}: {detail}" if depth else detail
 
 
 class _Turns:
@@ -222,6 +234,11 @@ def _voice_loop(turns: _Turns, memory) -> None:
         trigger=trigger,
         prompts=lambda: _due_reminders(memory),
     )
+    # Proof of life. The service starts silently at login, and a thing you
+    # cannot see needs a voice to say it is there — one line, every time the
+    # ears come up, so "is it even on?" never needs a terminal to answer.
+    io.speak(f"Hello {config.USER_NAME} — at your service."
+             if config.USER_NAME else "Hello — at your service.")
     try:
         while True:
             text = io.listen()
@@ -321,6 +338,8 @@ def run() -> int:
 
     print("Jarvis daemon starting — loading brain + connections…", flush=True)
     publish_state("starting", "loading brain + connections")
+    # A card left behind by a previous life is a question nobody is asking.
+    config.CARD_FILE.unlink(missing_ok=True)
     memory = MemoryStore(config.DB_FILE, embedder=LocalEmbedder())
     tools = [WebSearch(), SetReminder(memory), *_x_tools()]
     mcp_clients = _connect_mcp(tools)   # WhatsApp etc. now stay connected here

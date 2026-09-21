@@ -150,6 +150,13 @@ def _run() -> int:
     print("Mantrin setup — pick whose ears and whose voice.")
     print("Everything here is swappable later; nothing is locked in.")
 
+    # Asked first because it is the first thing Mantrin will ever say:
+    # "Hello <name> — at your service" the moment the ears come up.
+    current_name = settings.get("user_name") or ""
+    name = input(f"  Your name, for the startup hello [{current_name or 'skip'}]: ").strip()
+    if name:
+        settings["user_name"] = name
+
     keys = settings.get("keys") or {}
 
     # The key is asked for the moment a choice needs one — pick Grok, hand over

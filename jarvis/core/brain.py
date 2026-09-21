@@ -377,6 +377,46 @@ class Brain:
             return False                     # can't check -> ask, never assume
         return raw.startswith("yes")
 
+    @staticmethod
+    def _show_card(question: str) -> bool:
+        """Put a confirmation on the mascot's card instead of down the ear.
+        True only when someone is actually there to show it — a headless
+        session or a switched-off mascot means the voice carries everything."""
+        try:
+            from ..tray import alive
+            from .. import config
+            if not alive():
+                return False
+            tmp = config.CARD_FILE.with_suffix(".tmp")
+            tmp.write_text(json.dumps({"text": question, "ts": time.time()}))
+            tmp.chmod(0o600)                 # drafts can contain private messages
+            tmp.replace(config.CARD_FILE)
+            return True
+        except Exception:
+            return False                     # a broken card must never block consent
+
+    @staticmethod
+    def _hide_card() -> None:
+        from .. import config
+        try:
+            config.CARD_FILE.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+    @staticmethod
+    def _spoken_confirm(question: str) -> str:
+        """What the voice says while the full text sits on the card. Short
+        questions stay spoken as-is — glancing at a screen for "Turn off the
+        lights?" is sillier than hearing it. Long ones (the drafted-message
+        case the card exists for) shrink to their head: the part before the
+        colon is the action, everything after is the content."""
+        if len(question) <= 140:
+            return question
+        head = question.split(":", 1)[0].strip()
+        if 15 <= len(head) <= 90:
+            return f"{head} — it's on your screen, have a look. OK?"
+        return "I need your OK — the details are on your screen."
+
     def _make_executor(self, io):
         """Runs a tool the model asked for — gating outward/irreversible ones
         behind the user's permission. Returns the tool's result as a string
@@ -412,11 +452,17 @@ class Brain:
                         if key not in denied and self._already_consented(question):
                             approved.add(key)
                         else:
-                            io.speak(question)
-                            verdict = self._consent(question, io.listen() or "")
-                            if verdict == "unclear":
-                                io.speak("Sorry — was that a yes or a no?")
+                            on_card = self._show_card(question)
+                            try:
+                                io.speak(self._spoken_confirm(question)
+                                         if on_card else question)
                                 verdict = self._consent(question, io.listen() or "")
+                                if verdict == "unclear":
+                                    io.speak("Sorry — was that a yes or a no?")
+                                    verdict = self._consent(question, io.listen() or "")
+                            finally:
+                                if on_card:
+                                    self._hide_card()
                             if verdict != "yes":
                                 denied.add(key)
                                 return "The user declined; the action was not performed."
